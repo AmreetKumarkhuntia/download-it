@@ -118,7 +118,7 @@ export function App() {
             </div>
           </div>
           <div className="version">
-            <span className="online-dot" /> Download It <span>v0.1.0</span>
+            <span className="online-dot" /> Download It <span>v{__APP_VERSION__}</span>
           </div>
         </div>
       </aside>

@@ -13,9 +13,17 @@
     "format:check": "prettier --check . && cargo fmt --all --check",
     "contracts": "cargo run -p dm-contracts --bin export",
     "contracts:check": "cargo run -p dm-contracts --bin export -- --check",
-    "prepare:aria2": "node tooling/binaries/prepare.mjs"
+    "prepare:aria2": "node tooling/binaries/prepare.mjs",
+    "test:release": "node --test tooling/release/*.test.mjs",
+    "release": "semantic-release"
   },
   "devDependencies": {
-    "prettier": "^3.9.8"
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/github": "^12.0.9",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "conventional-changelog-conventionalcommits": "^10.4.0",
+    "fflate": "^0.8.3",
+    "prettier": "^3.9.8",
+    "semantic-release": "^25.0.9"
   }
 }

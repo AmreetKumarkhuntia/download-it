@@ -15,9 +15,15 @@ Built with **Tauri 2 · React · TypeScript · Rust · SQLite · aria2**.
 
 Browser integration, logged-in downloads, media extraction, archive extraction, scheduling, and background/tray operation are future phases. The app is not a video-site downloader yet.
 
+## Install and release versions
+
+Download the Windows x64 `-setup.exe` from [GitHub Releases](https://github.com/AmreetKumarkhuntia/download-it/releases). aria2 is included. The installer is currently **unsigned**, so Windows may display an unknown-publisher warning. macOS and Linux are build-tested in CI; their published installers and code signing are future additions.
+
+Push Conventional Commits to **`master`** to release: `fix:` creates a patch, `feat:` a minor, and `feat!:` or a `BREAKING CHANGE:` footer a major version. The first release is `1.0.0`. After all checks pass, semantic-release builds the installer, creates a `vX.Y.Z` tag, and publishes release notes, packages, checksums, and corresponding source archives. Documentation-only changes do not release. Other branches and pull requests never publish packages. The original `main` branch is not a release branch.
+
 ## Development
 
-Install Node 22+, pnpm 10.32.1, stable Rust, and aria2 1.37.0. Keep the lockfiles committed.
+Install Node 24.10+, pnpm 10.32.1, stable Rust, and aria2 1.37.0. Keep the lockfiles committed.
 
 Linux (Ubuntu 24.04):
 
@@ -43,6 +49,7 @@ pnpm dev
 pnpm check
 pnpm contracts:check
 pnpm test
+pnpm test:release
 pnpm build
 cargo test
 ARIA2_BIN=/absolute/path/to/aria2c cargo test -p dm-aria2 --test transfers -- --ignored --test-threads=1
@@ -67,4 +74,4 @@ Server behavior determines whether parallel connections or resume are available.
 
 ## License
 
-Original application source: [MIT](LICENSE). aria2: GPL-2.0-or-later. See [third-party notices](licenses/THIRD_PARTY.md). Source-only CI does not publish binary installers; release signing and corresponding-source preparation are documented separately.
+Original application source: [MIT](LICENSE). aria2: GPL-2.0-or-later. See [third-party notices](licenses/THIRD_PARTY.md). Windows releases include a companion source-and-notices package; see [release packaging](docs/architecture/releases.md).

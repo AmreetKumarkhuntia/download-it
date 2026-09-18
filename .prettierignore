@@ -7,3 +7,5 @@ apps/desktop/src-tauri/gen
 apps/desktop/src-tauri/binaries
 apps/desktop/src-tauri/icons
 licenses/GPL-2.0.txt
+licenses/aria2-windows
+/release

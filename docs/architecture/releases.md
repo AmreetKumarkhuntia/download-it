@@ -1,21 +1,55 @@
-# Platform builds and releases
+# Platform builds and semantic releases
 
-## Development build matrix
+## Release policy
 
-Windows x64 uses MSVC and WebView2; macOS Intel and Apple Silicon use the matching native Rust target; Linux x64 uses GTK3/WebKitGTK 4.1. Build on the corresponding OS rather than attempting to cross-compile the entire desktop runtime.
+`master` is the stable release branch. CI validates pushes on all branches and pull requests, but only pushes/manual workflow runs on `master` can publish. The original `main` branch is unchanged and does not publish; maintainers can make `master` the GitHub default branch in repository settings. No personal access token is needed: the release job uses its short-lived `GITHUB_TOKEN` with `contents: write`. Validation jobs have read-only access.
 
-`pnpm prepare:aria2` checks the pinned version, copies the executable with Tauri's target suffix, stages its non-system libraries, and records a SHA-256 manifest. Linux libraries are injected only into the child engine's environment. macOS requires dylibbundler to rewrite library references to the app Resources directory. Windows uses the official standalone x64 distribution. Changes to upstream engine versions require updating versions.json and rerunning real-process integration tests.
+The first release is **1.0.0**. Thereafter semantic-release reads commits since the last release:
 
-`pnpm desktop:build` creates the native installers. For a quick compilation check without creating installers, use `pnpm --filter @dm/desktop tauri build --no-bundle`.
+| Commit                                                      | Version change       |
+| ----------------------------------------------------------- | -------------------- |
+| `fix(engine): handle interrupted transfers`                 | Patch: 1.0.0 → 1.0.1 |
+| `feat(downloads): add scheduling`                           | Minor: 1.0.0 → 1.1.0 |
+| `feat(api)!: change download contracts`                     | Major: 1.0.0 → 2.0.0 |
+| Any commit with a `BREAKING CHANGE:` footer                 | Major                |
+| `docs:`, `test:`, `chore:`, `ci:` without a breaking change | No release           |
 
-## Publication requirements
+The highest change wins when a push includes multiple commits. Use Conventional Commit titles for squash merges. `release.config.mjs` owns the policy; `tooling/release/` owns version stamping and preparation, while `tooling/packaging/` owns distributable assembly. Releases currently share one version across the desktop app, Rust core/services, and contracts. Those internal crates and JS packages are not separately published to npm or crates.io.
 
-No automated workflow publishes releases. Before sharing installers:
+## CI pipeline
 
-1. Produce exact corresponding source archives for the bundled aria2 build and any copyleft libraries, including distributor patches, build recipes, and dependency notices. Preserve source and binary hashes. The upstream source URL in the manifest is provenance, not proof that a distribution-patched binary was built from that exact archive.
-2. Generate dependency license inventories for both lockfiles and bundled native libraries; include their license texts in the installer resources and release source archive.
-3. Run tests and manually smoke-test installation, first launch, folder selection, real download, recovery, and uninstall on each supported target. Test Windows/macOS certificates, proxies, filenames, and dialogs on real target systems.
-4. Sign Windows binaries/installers and sign/notarize macOS applications, including nested executables and libraries. Credentials are supplied through the release environment, never committed.
-5. Publish SHA-256 checksums and source archives alongside installers. Label unsigned development previews explicitly.
+1. Validate formatting, architecture boundaries, generated contracts, frontend tests/build, and release-tooling tests.
+2. Run Rust tests, Clippy, real aria2 transfer tests, and desktop compilation on Windows x64, Linux x64, macOS Intel, and macOS Apple Silicon.
+3. On `master`, semantic-release determines whether a release is needed. If not, it creates no package, tag, or release.
+4. For a release, stamp the version into the Rust workspace and its Cargo.lock entries, desktop and contracts package manifests, and Tauri config. The UI reads the desktop package version at build time.
+5. Verify pinned upstream binary/source hashes, preserve engine notices, and build the Windows NSIS installer. Package the exact version-stamped application source, upstream engine/dependency sources and recipes, build metadata, and SHA-256 checksums.
+6. Only after preparation succeeds, create `vX.Y.Z` and publish the GitHub Release and assets. No follow-on tag workflow is needed, and no issue/PR comments or labels are created.
 
-The repository uses manual updates initially. Browser extension registration and automatic updates are future release work.
+Releases are serialized; a running `master` workflow is not automatically canceled by the next push. Branch protection should require CI and disallow direct unreviewed changes to release workflows.
+
+Tags/releases are the version history. Version stamping is confined to the CI build checkout, with no generated version commit or recursive release. Consequently source manifests on the development branch retain their development version; the release's companion source ZIP contains the exact stamped build inputs. GitHub's automatic tag source archive contains the tagged development manifests instead. Never move or reuse a published version tag.
+
+If validation or packaging fails, fix it and push again; no tag has been published. If GitHub publishing fails after the tag is pushed, inspect the existing tag/release and recover the missing assets explicitly—rerunning semantic-release does not replay an already tagged release. Do not delete public tags to retry. A subsequent `fix(release): ...` commit can publish a new patch release.
+
+## Published Windows assets
+
+- `Download.It_X.Y.Z_x64-setup.exe` (the exact product filename is generated by Tauri): unsigned Windows x64 NSIS installer, including aria2. WebView2 is bootstrapped if absent and requires internet in that case.
+- `download-it-X.Y.Z-windows-x64-with-sources.zip`: the installer plus notices, checksums, build commit/run metadata, version-stamped application source, aria2/dependency source archives, and upstream Windows build recipes.
+- `SHA256SUMS.txt`: hashes for the installer and companion ZIP. These detect accidental corruption; they do not replace publisher signing.
+
+Binary assets live under **GitHub Releases**, not an npm registry or GitHub Packages registry. They do not expire like workflow artifacts. Keep the source package available alongside the binary and carry the notices/sources with any redistribution.
+
+## Native builds and extension points
+
+Windows uses MSVC/WebView2 and the official standalone aria2 x64 distribution. Linux uses GTK3/WebKitGTK 4.1. macOS uses its native Intel/Apple Silicon toolchain. Build on the corresponding OS rather than cross-compiling the desktop runtime.
+
+`pnpm prepare:aria2` checks the pinned engine version, copies the executable with Tauri's target suffix, stages its non-system libraries, and records a SHA-256 manifest. Linux libraries are injected only into the child engine's environment; macOS uses dylibbundler to rewrite library references. `pnpm desktop:build` builds native installers locally. `pnpm --filter @dm/desktop tauri build --no-bundle` checks compilation only.
+
+Next release additions:
+
+1. Signed Windows installers and actual install/launch/download/uninstall smoke tests on supported systems. CI currently tests transfers and compilation, not interactive installation.
+2. macOS DMG/notarization and Linux AppImage/deb packaging adapters. Audit their exact bundled library sources, distributor patches, and license texts before publishing. Homebrew/distribution binaries cannot reuse the Windows source manifest.
+3. Dependency license inventories, release attestations, and protected signing environments.
+4. Prerelease channels and automatic updates, with explicit version/signature policy. Browser-extension packaging can be another adapter without changing application services.
+
+Changes to the engine require updating `tooling/binaries/versions.json`, the matching source hashes/build recipes under `tooling/packaging/`, and real-process tests together. The repository uses manual application updates initially.

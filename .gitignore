@@ -18,4 +18,5 @@ coverage/
 playwright-report/
 test-results/
 .tools/
-release/
+/release/
+licenses/aria2-windows/
