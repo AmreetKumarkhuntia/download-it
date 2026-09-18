@@ -1,0 +1,3 @@
+CREATE TABLE jobs (id TEXT PRIMARY KEY NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL);
+PRAGMA user_version = 1;

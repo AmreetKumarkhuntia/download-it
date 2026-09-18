@@ -1,0 +1,21 @@
+{
+  "name": "download-it-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "pnpm --filter @dm/desktop tauri dev",
+    "dev:web": "pnpm --filter @dm/desktop dev",
+    "build": "pnpm --filter @dm/desktop build",
+    "desktop:build": "pnpm --filter @dm/desktop tauri build",
+    "test": "pnpm --filter @dm/desktop test",
+    "check": "node tooling/check-boundaries.mjs && pnpm --filter @dm/desktop typecheck",
+    "format": "prettier --write . && cargo fmt --all",
+    "format:check": "prettier --check . && cargo fmt --all --check",
+    "contracts": "cargo run -p dm-contracts --bin export",
+    "contracts:check": "cargo run -p dm-contracts --bin export -- --check",
+    "prepare:aria2": "node tooling/binaries/prepare.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.8"
+  }
+}

@@ -1,0 +1,24 @@
+[package]
+name = "download-it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+dm-domain.workspace = true
+dm-contracts.workspace = true
+dm-application.workspace = true
+dm-aria2.workspace = true
+dm-sqlite.workspace = true
+dm-filesystem.workspace = true
+dm-process.workspace = true
+tokio.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

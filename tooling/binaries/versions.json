@@ -1,0 +1,8 @@
+{
+  "aria2": {
+    "version": "1.37.0",
+    "source": "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0.tar.xz",
+    "windowsX64": "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip",
+    "license": "GPL-2.0-or-later"
+  }
+}

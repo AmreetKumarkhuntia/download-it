@@ -1,0 +1,16 @@
+[package]
+name = "dm-filesystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dm-domain.workspace = true
+dm-application.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+sha2 = "0.10"
+same-file = "1"
+
+[dev-dependencies]
+tempfile.workspace = true

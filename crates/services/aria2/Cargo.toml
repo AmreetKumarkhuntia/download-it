@@ -1,0 +1,21 @@
+[package]
+name = "dm-aria2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dm-domain.workspace = true
+dm-application.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+dm-process.workspace = true
+dm-sqlite.workspace = true
+dm-filesystem.workspace = true
+dm-contracts.workspace = true
+tempfile.workspace = true
+sha2 = "0.10"
