@@ -63,7 +63,8 @@ jobs:
       - run: pnpm prepare:aria2
       - run: cargo test --locked
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --locked -p dm-aria2 --test transfers -- --ignored --test-threads=1
+      - name: Real aria2 transfer tests
+        run: node tooling/testing/transfers.mjs
       - name: Compile desktop application
         run: pnpm --filter @dm/desktop tauri build --no-bundle
   release:
