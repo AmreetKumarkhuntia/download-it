@@ -15,7 +15,7 @@
     "contracts:check": "cargo run -p dm-contracts --bin export -- --check",
     "prepare:aria2": "node tooling/binaries/prepare.mjs",
     "test:release": "node --test tooling/release/*.test.mjs",
-    "release": "semantic-release"
+    "release": "node tooling/release/run.mjs"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",

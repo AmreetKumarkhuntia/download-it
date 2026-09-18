@@ -11,10 +11,23 @@ import { analyzeCommits } from '@semantic-release/commit-analyzer';
 import config from '../../release.config.mjs';
 import { stampCargoLock, stampWorkspace, validateVersion } from './versions.mjs';
 import { assemble, collectSources } from '../packaging/windows-artifact.mjs';
+import { releaseFailure } from './errors.mjs';
 
 const project = fileURLToPath(new URL('../../', import.meta.url));
 const logger = { log() {} };
 const hash = (data) => createHash('sha256').update(data).digest('hex');
+
+test('release failure annotations redact credentials and escape control characters', () => {
+  const message = releaseFailure(
+    { errors: [new Error('token=secret-value\nhttps://user:password@github.com/owner/repo 50%')] },
+    ['secret-value'],
+  );
+  assert.ok(!message.includes('secret-value'));
+  assert.ok(!message.includes('password'));
+  assert.ok(!message.includes('\n'));
+  assert.ok(message.includes('%0A'));
+  assert.ok(message.includes('50%25'));
+});
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'download-it-release-test-'));
