@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { unzipSync } from 'fflate';
 import { analyzeCommits } from '@semantic-release/commit-analyzer';
+import { generateNotes } from '@semantic-release/release-notes-generator';
 import config from '../../release.config.mjs';
 import { stampCargoLock, stampWorkspace, validateVersion } from './versions.mjs';
 import { assemble, collectSources } from '../packaging/windows-artifact.mjs';
@@ -76,6 +77,24 @@ test('stable release versions reject malformed or prerelease values', () => {
     assert.doesNotThrow(() => validateVersion(value));
   for (const value of ['v1.0.0', '01.0.0', '1.0', '1.0.0-beta.1', '1.0.0\n', '1.0.0;echo']) {
     assert.throws(() => validateVersion(value));
+  }
+});
+
+test('the installed preset and notes writer render a complete initial changelog', async () => {
+  const notes = await generateNotes(config.plugins[1][1], {
+    cwd: project,
+    logger,
+    options: { repositoryUrl: config.repositoryUrl },
+    lastRelease: {},
+    nextRelease: { version: '1.0.0', gitTag: 'v1.0.0' },
+    commits: [
+      { hash: 'a'.repeat(40), message: 'feat(downloads): add scheduling' },
+      { hash: 'b'.repeat(40), message: 'fix(engine): resume transfers' },
+      { hash: 'c'.repeat(40), message: 'feat(api)!: change contracts' },
+    ],
+  });
+  for (const text of ['1.0.0', 'add scheduling', 'resume transfers', 'BREAKING CHANGES']) {
+    assert.ok(notes.includes(text), `Release notes must contain ${text}`);
   }
 });
 
