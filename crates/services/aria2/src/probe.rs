@@ -75,6 +75,8 @@ impl SourceProbe for HttpSourceProbe {
             })
         });
         Ok(SourceMetadata {
+            effective_url: Some(response.url().to_string()),
+            range_supported: Some(status == StatusCode::PARTIAL_CONTENT),
             total_bytes: total,
             etag: get(header::ETAG),
             last_modified: get(header::LAST_MODIFIED),

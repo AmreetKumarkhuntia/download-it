@@ -11,12 +11,12 @@ use tauri::{Emitter, Manager};
 pub fn poll(app: tauri::AppHandle, stopping: Arc<AtomicBool>) {
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(800));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         while !stopping.load(Ordering::SeqCst) {
             interval.tick().await;
             let state = app.state::<AppServices>();
-            if let Err(error) = state.downloads.tick().await {
-                let _ = app.emit("engine-error", error);
-            }
+            let health = state.downloads.poll().await;
+            let _ = app.emit("engine-health", health);
             if let Ok(jobs) = state.downloads.list().await {
                 let _ = app.emit("downloads-changed", jobs);
             }

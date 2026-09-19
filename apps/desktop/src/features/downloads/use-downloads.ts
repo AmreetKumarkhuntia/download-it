@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { JobView, Settings } from '@dm/contracts';
+import type { EngineHealth, JobView, Settings } from '@dm/contracts';
 import { client, desktopAvailable, errorMessage } from '../../services/download-client';
 
 export function useDownloads() {
@@ -7,6 +7,18 @@ export function useDownloads() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [health, setHealth] = useState<EngineHealth | null>(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const stale =
+    desktopAvailable &&
+    (!health?.connected ||
+      !!health.error ||
+      !health.lastSuccessAt ||
+      now - Number(health.lastSuccessAt) * 1000 > 10000);
   const refresh = useCallback(async () => {
     setJobs(await client.list());
   }, []);
@@ -21,18 +33,22 @@ export function useDownloads() {
         });
         if (cancelled) jobsOff();
         else unsubscribers.push(jobsOff);
-        const errorOff = await client.onError((value) => {
-          if (!cancelled) setError(value.message);
+        let healthReceived = false;
+        const errorOff = await client.onHealth((value) => {
+          healthReceived = true;
+          if (!cancelled) setHealth(value);
         });
         if (cancelled) errorOff();
         else unsubscribers.push(errorOff);
-        const [initialJobs, initialSettings] = await Promise.all([
+        const [initialJobs, initialSettings, initialHealth] = await Promise.all([
           client.list(),
           client.settings(),
+          client.health(),
         ]);
         if (!cancelled) {
           setJobs(initialJobs);
           setSettings(initialSettings);
+          if (!healthReceived) setHealth(initialHealth);
         }
       } catch (e) {
         if (!cancelled) setError(errorMessage(e));
@@ -61,5 +77,5 @@ export function useDownloads() {
     },
     [refresh],
   );
-  return { jobs, settings, setSettings, error, setError, busy, run };
+  return { jobs, settings, setSettings, error, setError, busy, run, health, stale };
 }

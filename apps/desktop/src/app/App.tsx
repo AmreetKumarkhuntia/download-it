@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  FileText,
   FolderDown,
   HardDrive,
   Plus,
@@ -18,21 +19,24 @@ import type { JobView } from '@dm/contracts';
 import { Button } from '../components/ui/button';
 import { AddDownload } from '../features/downloads/AddDownload';
 import { DownloadCard } from '../features/downloads/DownloadCard';
+import { DownloadDetailsDialog } from '../features/downloads/DownloadDetailsDialog';
+import { DiagnosticsPanel, dateTime } from '../features/downloads/DiagnosticsPanel';
 import { useDownloads } from '../features/downloads/use-downloads';
 import { bytes } from '../features/downloads/format';
 import { SettingsPanel } from '../features/settings/SettingsPanel';
 import { client, desktopAvailable } from '../services/download-client';
 
-type Page = 'downloads' | 'history' | 'settings';
+type Page = 'downloads' | 'history' | 'settings' | 'diagnostics';
 type Filter = 'all' | 'active' | 'paused' | 'completed';
 
 export function App() {
-  const { jobs, settings, setSettings, error, setError, busy, run } = useDownloads();
+  const { jobs, settings, setSettings, error, setError, busy, run, health, stale } = useDownloads();
   const [page, setPage] = useState<Page>('downloads');
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [restart, setRestart] = useState<JobView | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const active = jobs.filter((j) => ['downloading', 'queued', 'verifying'].includes(j.status));
   const completed = jobs.filter((j) => j.status === 'completed');
   const speed = active.reduce((n, j) => n + j.speedBytes, 0);
@@ -104,6 +108,13 @@ export function App() {
             <Settings2 size={18} />
             <span>Preferences</span>
           </button>
+          <button
+            className={page === 'diagnostics' ? 'nav-item selected' : 'nav-item'}
+            onClick={() => setPage('diagnostics')}
+          >
+            <FileText size={18} />
+            <span>Diagnostics</span>
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="local-note">
@@ -127,7 +138,13 @@ export function App() {
           <div className="breadcrumb">
             Workspace <ChevronRight size={14} />
             <span>
-              {page === 'settings' ? 'Preferences' : page === 'history' ? 'History' : 'Downloads'}
+              {page === 'diagnostics'
+                ? 'Diagnostics'
+                : page === 'settings'
+                  ? 'Preferences'
+                  : page === 'history'
+                    ? 'History'
+                    : 'Downloads'}
             </span>
           </div>
           <span className="local-badge">
@@ -139,19 +156,23 @@ export function App() {
             <div>
               <div className="eyebrow">A LITTLE LESS WAITING</div>
               <h1>
-                {page === 'settings'
-                  ? 'Preferences'
-                  : page === 'history'
-                    ? 'Your download history'
-                    : 'Your downloads, organized.'}
+                {page === 'diagnostics'
+                  ? 'Activity & diagnostics'
+                  : page === 'settings'
+                    ? 'Preferences'
+                    : page === 'history'
+                      ? 'Your download history'
+                      : 'Your downloads, organized.'}
               </h1>
               <p>
-                {page === 'settings'
-                  ? 'Set things up just the way you like.'
-                  : 'Pick up where you left off. We’ll handle the rest.'}
+                {page === 'diagnostics'
+                  ? 'Engine health, download events and a record of what went wrong.'
+                  : page === 'settings'
+                    ? 'Set things up just the way you like.'
+                    : 'Pick up where you left off. We’ll handle the rest.'}
               </p>
             </div>
-            {page !== 'settings' && (
+            {(page === 'downloads' || page === 'history') && (
               <Button onClick={() => setAdding(true)} disabled={!desktopAvailable || !settings}>
                 <Plus size={17} /> New download
               </Button>
@@ -179,7 +200,51 @@ export function App() {
               </Button>
             </div>
           )}
-          {page === 'settings' ? (
+          {desktopAvailable && (
+            <div className={`engine-status ${stale ? 'is-stale' : ''}`} role="status">
+              <div>
+                <strong>
+                  {!health?.checkedAt
+                    ? 'Checking download engine…'
+                    : !health.connected
+                      ? 'Engine connection interrupted'
+                      : stale
+                        ? 'Waiting for a fresh status update'
+                        : 'Engine connected'}
+                </strong>
+                <p>
+                  {health?.error?.message ??
+                    (stale
+                      ? 'Showing saved progress. Live updates retry automatically.'
+                      : 'Live download status is updating.')}
+                  {health?.lastSuccessAt &&
+                    stale &&
+                    ` Last successful update: ${dateTime(health.lastSuccessAt)}.`}
+                </p>
+                {health && health.consecutiveFailures >= 3 && !health.connected && (
+                  <p>
+                    If the connection does not recover, restart the app, then resume your saved
+                    downloads.
+                  </p>
+                )}
+                {health?.logError && (
+                  <p className="inline-error">
+                    Diagnostic logs could not be saved: {health.logError.message}
+                  </p>
+                )}
+              </div>
+              <Button variant="ghost" onClick={() => setPage('diagnostics')}>
+                View logs
+              </Button>
+            </div>
+          )}
+          {page === 'diagnostics' ? (
+            desktopAvailable ? (
+              <DiagnosticsPanel />
+            ) : (
+              <p className="muted">Open the desktop app to view saved diagnostic logs.</p>
+            )
+          ) : page === 'settings' ? (
             settings ? (
               <SettingsPanel
                 settings={settings}
@@ -219,8 +284,8 @@ export function App() {
                   <div>
                     <span className="stat-label">Total speed</span>
                     <strong>
-                      {bytes(speed)}
-                      <span>/ second</span>
+                      {stale ? '—' : bytes(speed)}
+                      <span>{stale ? 'awaiting live status' : '/ second'}</span>
                     </strong>
                   </div>
                 </div>
@@ -273,7 +338,14 @@ export function App() {
               <div className="download-list">
                 {filtered.length ? (
                   filtered.map((job) => (
-                    <DownloadCard key={job.id} job={job} busy={busy} onAction={action} />
+                    <DownloadCard
+                      key={job.id}
+                      job={job}
+                      busy={busy}
+                      onAction={action}
+                      onDetails={(job) => setDetailsId(job.id)}
+                      stale={stale}
+                    />
                   ))
                 ) : (
                   <div className="empty-state">
@@ -322,7 +394,11 @@ export function App() {
               <footer className="page-footer">
                 <span>
                   <span className="online-dot" />{' '}
-                  {active.length ? 'Downloads in progress' : 'Ready when you are'}
+                  {stale
+                    ? 'Waiting for live status'
+                    : active.length
+                      ? 'Downloads in progress'
+                      : 'Ready when you are'}
                 </span>
                 <span>Built for the files that matter.</span>
               </footer>
@@ -338,6 +414,9 @@ export function App() {
           onClose={() => setAdding(false)}
           onAdd={(request) => run(() => client.add(request))}
         />
+      )}
+      {detailsId && (
+        <DownloadDetailsDialog key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} />
       )}
       {restart && (
         <RestartDialog

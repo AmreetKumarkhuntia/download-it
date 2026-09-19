@@ -14,12 +14,20 @@ pub struct EngineProgress {
 
 #[async_trait]
 pub trait DownloadEngine: Send + Sync {
+    async fn ping(&self) -> Result<()>;
+    async fn details(&self, id: &str) -> Result<Option<dm_domain::TransferDetails>>;
     async fn enqueue(&self, job: &Job, settings: &Settings) -> Result<()>;
     async fn pause(&self, id: &str) -> Result<()>;
     async fn remove(&self, id: &str) -> Result<()>;
     async fn inspect(&self, id: &str) -> Result<Option<EngineProgress>>;
     async fn configure(&self, settings: &Settings) -> Result<()>;
     async fn shutdown(&self) -> Result<()>;
+}
+
+#[async_trait]
+pub trait DiagnosticRepository: Send + Sync {
+    async fn record(&self, event: dm_domain::DiagnosticEvent) -> Result<()>;
+    async fn diagnostics(&self, job_id: Option<&str>) -> Result<Vec<dm_domain::DiagnosticEvent>>;
 }
 
 #[async_trait]

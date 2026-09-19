@@ -66,6 +66,64 @@ pub struct SourceMetadata {
     pub filename: Option<String>,
     #[serde(default)]
     pub content_type: Option<String>,
+    #[serde(default)]
+    pub effective_url: Option<String>,
+    #[serde(default)]
+    pub range_supported: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineConnection {
+    /// Origin only: paths, credentials, signed query strings and fragments are excluded.
+    pub server: String,
+    #[ts(type = "number")]
+    pub speed_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferDetails {
+    pub connections: u32,
+    pub connection_limit: u32,
+    #[ts(type = "number")]
+    pub speed_bytes: u64,
+    pub piece_count: u32,
+    #[ts(type = "number")]
+    pub piece_bytes: u64,
+    pub completed_pieces: u32,
+    /// Up to 120 consecutive groups of pieces, each a completion percentage.
+    pub piece_groups: Vec<u8>,
+    pub servers: Vec<EngineConnection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineHealth {
+    pub connected: bool,
+    pub checked_at: Option<String>,
+    pub last_success_at: Option<String>,
+    pub consecutive_failures: u32,
+    pub error: Option<AppError>,
+    pub log_error: Option<AppError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticEvent {
+    pub timestamp: String,
+    pub level: String,
+    pub event: String,
+    pub job_id: Option<String>,
+    pub message: String,
+}
+
+pub fn timestamp() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        .to_string()
 }
 
 /// Durable browser handoff ownership; prepared jobs have not entered the engine.

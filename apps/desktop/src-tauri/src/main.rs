@@ -30,7 +30,10 @@ fn main() {
             commands::resume_download,
             commands::cancel_download,
             commands::get_settings,
-            commands::update_settings
+            commands::update_settings,
+            commands::get_download_details,
+            commands::get_engine_health,
+            commands::get_diagnostics
         ])
         .build(tauri::generate_context!())
         .expect(

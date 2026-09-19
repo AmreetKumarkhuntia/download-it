@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use dm_application::ports::{DownloadEngine, EngineProgress};
-use dm_domain::{AppError, ErrorCode, Job, JobStatus, Result, Settings};
+use dm_domain::{
+    AppError, EngineConnection, ErrorCode, Job, JobStatus, Result, Settings, TransferDetails,
+};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
@@ -28,13 +30,20 @@ impl Aria2Engine {
     async fn rpc(&self, method: &str, mut params: Vec<Value>) -> Result<Value> {
         params.insert(0, json!(format!("token:{}", self.secret)));
         let response = self.client.post(&self.endpoint).json(&json!({"jsonrpc":"2.0","id":"download-it","method":format!("aria2.{method}"),"params":params}))
-            .send().await.map_err(|_| AppError::new(ErrorCode::Engine, "The download engine is unavailable. Restart the application to recover paused downloads."))?
+            .send().await.map_err(|e| {
+                let reason = if e.is_timeout() { "timed out" } else if e.is_connect() { "could not connect" } else { "transport failed" };
+                AppError::new(ErrorCode::Engine, format!("Engine request {method} {reason}. Status will retry automatically."))
+            })?
+            // aria2 uses HTTP 400 for valid JSON-RPC errors such as a missing GID.
+            // Decode those errors before deciding whether engine communication failed.
             .json::<Value>().await.map_err(|_| AppError::new(ErrorCode::Engine, "Invalid response from the download engine."))?;
         if response.get("error").is_some() {
-            if matches!(method, "tellStatus" | "removeDownloadResult")
-                && response["error"]["message"]
-                    .as_str()
-                    .is_some_and(|m| m.contains("not found"))
+            if matches!(
+                method,
+                "tellStatus" | "getServers" | "getOption" | "removeDownloadResult"
+            ) && response["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("not found"))
             {
                 return Err(AppError::new(
                     ErrorCode::NotFound,
@@ -47,7 +56,16 @@ impl Aria2Engine {
                 format!("The download engine could not complete {method}."),
             ));
         }
-        Ok(response["result"].clone())
+        response
+            .get("result")
+            .cloned()
+            .filter(|v| !v.is_null())
+            .ok_or_else(|| {
+                AppError::new(
+                    ErrorCode::Engine,
+                    "The download engine returned an incomplete response.",
+                )
+            })
     }
     pub async fn wait_ready(&self) -> Result<()> {
         for _ in 0..50 {
@@ -73,6 +91,42 @@ impl Aria2Engine {
 }
 #[async_trait]
 impl DownloadEngine for Aria2Engine {
+    async fn ping(&self) -> Result<()> {
+        self.rpc("getVersion", vec![]).await?;
+        Ok(())
+    }
+
+    async fn details(&self, id: &str) -> Result<Option<TransferDetails>> {
+        let gid = Self::gid(id)?;
+        let value = match self
+            .rpc(
+                "tellStatus",
+                vec![
+                    json!(gid),
+                    json!([
+                        "status",
+                        "connections",
+                        "downloadSpeed",
+                        "numPieces",
+                        "pieceLength",
+                        "bitfield"
+                    ]),
+                ],
+            )
+            .await
+        {
+            Ok(value) => value,
+            Err(e) if e.code == ErrorCode::NotFound => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let options = self.rpc("getOption", vec![json!(gid)]).await?;
+        let servers = if value["status"] == "active" {
+            self.rpc("getServers", vec![json!(gid)]).await?
+        } else {
+            json!([])
+        };
+        Ok(Some(transfer_details(&value, &options, &servers)))
+    }
     async fn enqueue(&self, job: &Job, settings: &Settings) -> Result<()> {
         let path = Path::new(&job.staging_path);
         let mut headers = vec!["Accept-Encoding: identity".to_owned()];
@@ -122,7 +176,22 @@ impl DownloadEngine for Aria2Engine {
         Ok(())
     }
     async fn inspect(&self, id: &str) -> Result<Option<EngineProgress>> {
-        let result = self.rpc("tellStatus", vec![json!(Self::gid(id)?)]).await;
+        let result = self
+            .rpc(
+                "tellStatus",
+                vec![
+                    json!(Self::gid(id)?),
+                    json!([
+                        "status",
+                        "completedLength",
+                        "totalLength",
+                        "downloadSpeed",
+                        "connections",
+                        "errorCode"
+                    ]),
+                ],
+            )
+            .await;
         let value = match result {
             Ok(value) => value,
             Err(e) if e.code == ErrorCode::NotFound => return Ok(None),
@@ -168,6 +237,61 @@ impl DownloadEngine for Aria2Engine {
         Ok(())
     }
 }
+fn transfer_details(value: &Value, options: &Value, servers: &Value) -> TransferDetails {
+    let number = |v: &Value, key: &str| {
+        v[key]
+            .as_str()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0)
+    };
+    let count = number(value, "numPieces").min(u32::MAX as u64) as u32;
+    let bitfield = value["bitfield"].as_str().unwrap_or("").as_bytes();
+    let groups = count.min(120);
+    let mut completed = vec![0_u64; groups as usize];
+    let mut sizes = vec![0_u64; groups as usize];
+    let mut completed_pieces = 0;
+    // Bound work by the received bitmap, including for malformed responses.
+    for i in 0..(count as usize).min(bitfield.len().saturating_mul(4)) {
+        let group = (i as u64 * groups as u64 / count as u64) as usize;
+        let nibble = (bitfield[i / 4] as char).to_digit(16).unwrap_or(0);
+        let done = u64::from(nibble & (1 << (3 - i % 4)) != 0);
+        completed[group] += done;
+        completed_pieces += done as u32;
+    }
+    for (group, size) in sizes.iter_mut().enumerate() {
+        let start = (group as u64 * count as u64).div_ceil(groups as u64);
+        let end = ((group as u64 + 1) * count as u64).div_ceil(groups as u64);
+        *size = end - start;
+    }
+    TransferDetails {
+        connections: number(value, "connections") as u32,
+        connection_limit: number(options, "split").min(number(options, "max-connection-per-server"))
+            as u32,
+        speed_bytes: number(value, "downloadSpeed"),
+        piece_count: count,
+        piece_bytes: number(value, "pieceLength"),
+        completed_pieces,
+        piece_groups: completed
+            .iter()
+            .zip(sizes)
+            .map(|(done, size)| (done * 100 / size.max(1)) as u8)
+            .collect(),
+        servers: servers
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|file| file["servers"].as_array().into_iter().flatten())
+            .filter_map(|server| {
+                let url = reqwest::Url::parse(server["currentUri"].as_str()?).ok()?;
+                Some(EngineConnection {
+                    server: url.origin().ascii_serialization(),
+                    speed_bytes: number(server, "downloadSpeed"),
+                })
+            })
+            .collect(),
+    }
+}
+
 fn engine_error(code: &str) -> AppError {
     match code {
         "9" => AppError::new(ErrorCode::Disk, "Not enough disk space. Free space and resume."),
@@ -178,5 +302,39 @@ fn engine_error(code: &str) -> AppError {
         "3" => AppError::new(ErrorCode::NotFound, "The file is no longer available at this link."),
         "32" => AppError::new(ErrorCode::ChecksumMismatch, "Downloaded data failed checksum verification."),
         _ => AppError::new(ErrorCode::Network, format!("Download failed (engine code {code}). Check the connection or obtain a fresh direct URL.")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn telemetry_uses_msb_first_ignores_padding_and_redacts_server_urls() {
+        let details = transfer_details(
+            &json!({"numPieces":"5", "bitfield":"af", "pieceLength":"1048576", "connections":"2"}),
+            &json!({"split":"8", "max-connection-per-server":"4"}),
+            &json!([{"servers":[{"currentUri":"https://user:pass@cdn.example/file?token=secret#private", "downloadSpeed":"42"}]}]),
+        );
+        assert_eq!(details.piece_groups, vec![100, 0, 100, 0, 100]);
+        assert_eq!(details.completed_pieces, 3);
+        assert_eq!(details.connection_limit, 4);
+        assert_eq!(details.servers[0].server, "https://cdn.example");
+        assert_eq!(details.servers[0].speed_bytes, 42);
+        assert_eq!(
+            transfer_details(&json!({}), &json!({}), &json!([])).piece_groups,
+            Vec::<u8>::new()
+        );
+    }
+
+    #[test]
+    fn large_piece_maps_are_bounded_and_preserve_completion() {
+        let details = transfer_details(
+            &json!({"numPieces":"1001", "bitfield":"f".repeat(251)}),
+            &json!({}),
+            &json!([]),
+        );
+        assert_eq!(details.completed_pieces, 1001);
+        assert_eq!(details.piece_groups, vec![100; 120]);
     }
 }

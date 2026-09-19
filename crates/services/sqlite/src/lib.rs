@@ -4,6 +4,7 @@ use dm_domain::{AppError, BrowserHandoff, ErrorCode, HandoffState, Job, Result, 
 use rusqlite::{Connection, OptionalExtension};
 use std::{path::Path, sync::mpsc};
 use tokio::sync::oneshot;
+mod diagnostics;
 
 type Work = Box<dyn FnOnce(&mut Connection) + Send>;
 pub struct SqliteService {
@@ -28,7 +29,7 @@ impl SqliteService {
         let version: u32 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(database_error)?;
-        if version > 2 {
+        if version > 3 {
             return Err(AppError::new(
                 ErrorCode::Persistence,
                 "This database belongs to a newer application version.",
@@ -43,6 +44,12 @@ impl SqliteService {
         if version < 2 {
             let tx = connection.transaction().map_err(database_error)?;
             tx.execute_batch(include_str!("../migrations/002_browser_handoffs.sql"))
+                .map_err(database_error)?;
+            tx.commit().map_err(database_error)?;
+        }
+        if version < 3 {
+            let tx = connection.transaction().map_err(database_error)?;
+            tx.execute_batch(include_str!("../migrations/003_diagnostics.sql"))
                 .map_err(database_error)?;
             tx.commit().map_err(database_error)?;
         }
@@ -177,9 +184,21 @@ impl JobRepository for SqliteService {
     async fn save(&self, job: &Job) -> Result<()> {
         let job = job.clone();
         self.run(move |c| {
+            let tx = c.transaction().map_err(database_error)?;
+            let old: Option<String> = tx.query_row("SELECT payload FROM jobs WHERE id=?1", [&job.id], |r| r.get(0)).optional().map_err(database_error)?;
+            let old = old.map(|raw| serde_json::from_str::<Job>(&raw).map_err(database_error)).transpose()?;
+            if old.as_ref().is_none_or(|previous| previous.status != job.status || previous.error.as_ref().map(|e| &e.code) != job.error.as_ref().map(|e| &e.code)) {
+                diagnostics::write_event(&tx, &dm_domain::DiagnosticEvent {
+                    timestamp: dm_domain::timestamp(),
+                    level: if job.error.is_some() { "error" } else { "info" }.into(),
+                    event: "download.state".into(),
+                    job_id: Some(job.id.clone()),
+                    message: format!("Status: {:?}; downloaded: {} bytes; connections: {}; speed: {} bytes/s; error: {:?}", job.status, job.downloaded_bytes, job.connections, job.speed_bytes, job.error.as_ref().map(|e| &e.code)),
+                })?;
+            }
             let payload = serde_json::to_string(&job).map_err(database_error)?;
-            c.execute("INSERT INTO jobs(id,created_at,payload) VALUES (?1,?2,?3) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload", (&job.id, &job.created_at, payload)).map_err(database_error)?;
-            Ok(())
+            tx.execute("INSERT INTO jobs(id,created_at,payload) VALUES (?1,?2,?3) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload", (&job.id, &job.created_at, payload)).map_err(database_error)?;
+            tx.commit().map_err(database_error)
         }).await
     }
     async fn list(&self) -> Result<Vec<Job>> {

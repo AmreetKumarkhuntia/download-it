@@ -1,4 +1,4 @@
-import { Archive, Check, File, Film, Music, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { Archive, Check, File, Film, Info, Music, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { JobView } from '@dm/contracts';
 import { Button } from '../../components/ui/button';
 import { bytes, eta } from './format';
@@ -7,10 +7,14 @@ export function DownloadCard({
   job,
   busy,
   onAction,
+  onDetails,
+  stale = false,
 }: {
   job: JobView;
   busy: boolean;
   onAction: (action: 'pause' | 'resume' | 'restart' | 'cancel', job: JobView) => void;
+  onDetails: (job: JobView) => void;
+  stale?: boolean;
 }) {
   const live = ['downloading', 'queued'].includes(job.status);
   const complete = job.status === 'completed';
@@ -68,21 +72,33 @@ export function DownloadCard({
                 {job.totalBytes !== null && ` · ${percent.toFixed(0)}%`}
               </span>
               <span>
-                {live
-                  ? `${bytes(job.speedBytes)}/s · ${eta(job.etaSeconds)}`
-                  : job.status === 'verifying'
-                    ? 'Verifying file…'
-                    : 'Progress saved'}
+                {live && stale
+                  ? 'Waiting for live status…'
+                  : live
+                    ? `${bytes(job.speedBytes)}/s · ${eta(job.etaSeconds)}`
+                    : job.status === 'verifying'
+                      ? 'Verifying file…'
+                      : 'Progress saved'}
               </span>
             </>
           )}
         </div>
         {job.error && <p className="inline-error">{job.error.message}</p>}
-        {live && job.connections > 0 && (
-          <span className="connection-count">{job.connections} active connections</span>
+        {live && (
+          <button className="connection-count connection-button" onClick={() => onDetails(job)}>
+            {stale ? 'Last known progress' : `${job.connections} active connections`} · View details
+          </button>
         )}
       </div>
       <div className="download-actions">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Details for ${job.filename}`}
+          onClick={() => onDetails(job)}
+        >
+          <Info size={17} />
+        </Button>
         {live ? (
           <Button
             variant="ghost"

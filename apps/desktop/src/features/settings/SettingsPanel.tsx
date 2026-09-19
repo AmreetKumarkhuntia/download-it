@@ -49,6 +49,10 @@ export function SettingsPanel({
         value={value.connectionsPerDownload}
         onChange={(e) => update({ connectionsPerDownload: Number(e.target.value) })}
       />
+      <p className="field-help">
+        More connections can be slower on servers that limit parallel requests. Compare 1, 4 and 8
+        connections, then pause and resume to apply each change.
+      </p>
       <label htmlFor="speed-limit">Total speed limit (KB/s)</label>
       <input
         id="speed-limit"

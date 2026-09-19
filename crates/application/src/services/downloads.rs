@@ -17,6 +17,8 @@ pub struct DownloadService {
     pub(super) files: Arc<dyn FileStore>,
     // Serializes state changes, including polling, so pause/cancel cannot race completion.
     pub(super) operation: Mutex<()>,
+    pub(super) diagnostics: Option<Arc<dyn DiagnosticRepository>>,
+    pub(super) health: Mutex<dm_domain::EngineHealth>,
 }
 
 impl DownloadService {
@@ -34,6 +36,8 @@ impl DownloadService {
             settings,
             files,
             operation: Mutex::new(()),
+            diagnostics: None,
+            health: Mutex::new(dm_domain::EngineHealth::default()),
         }
     }
 
@@ -264,6 +268,7 @@ impl DownloadService {
                         "The download engine lost this job. Resume it to recover.",
                     ));
                     j.speed_bytes = 0;
+                    j.connections = 0;
                     self.jobs.save(&j).await?;
                     continue;
                 }

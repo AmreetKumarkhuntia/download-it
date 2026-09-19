@@ -1,5 +1,7 @@
 use dm_application::{
-    ports::{BrowserHandoffRepository, ProcessSupervisor, SettingsRepository},
+    ports::{
+        BrowserHandoffRepository, DiagnosticRepository, ProcessSupervisor, SettingsRepository,
+    },
     services::{BrowserService, DownloadService},
 };
 use dm_aria2::{Aria2Engine, HttpSourceProbe};
@@ -44,6 +46,14 @@ pub async fn initialize(app: &tauri::AppHandle) -> Result<AppServices> {
         )?;
     }
     let db = Arc::new(SqliteService::open(&directory.join("downloads.sqlite"))?);
+    db.record(dm_domain::DiagnosticEvent {
+        timestamp: dm_domain::timestamp(),
+        level: "info".into(),
+        event: "application.starting".into(),
+        job_id: None,
+        message: "Starting download engine and recovering saved downloads.".into(),
+    })
+    .await?;
     let mut settings = db.load_settings().await?;
     if settings.default_directory.is_empty() {
         settings.default_directory = app
@@ -75,14 +85,28 @@ pub async fn initialize(app: &tauri::AppHandle) -> Result<AppServices> {
         process.endpoint.clone(),
         process.secret.clone(),
     )?);
-    engine.wait_ready().await?;
-    let downloads = Arc::new(DownloadService::new(
-        engine,
-        Arc::new(HttpSourceProbe::new()?),
-        db.clone(),
-        db.clone(),
-        Arc::new(LocalFileStore),
-    ));
+    if let Err(error) = engine.wait_ready().await {
+        let _ = db
+            .record(dm_domain::DiagnosticEvent {
+                timestamp: dm_domain::timestamp(),
+                level: "error".into(),
+                event: "engine.start_failed".into(),
+                job_id: None,
+                message: error.message.clone(),
+            })
+            .await;
+        return Err(error);
+    }
+    let downloads = Arc::new(
+        DownloadService::new(
+            engine,
+            Arc::new(HttpSourceProbe::new()?),
+            db.clone(),
+            db.clone(),
+            Arc::new(LocalFileStore),
+        )
+        .with_diagnostics(db.clone()),
+    );
     downloads.recover().await?;
     db.recover_handoffs().await?;
     let browser = Arc::new(BrowserService::new(downloads.clone(), db));

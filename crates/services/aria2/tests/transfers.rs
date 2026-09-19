@@ -278,8 +278,38 @@ async fn parallel_download_checks_hash_and_preserves_existing_files() {
     let job = h
         .add(format!("{}/redirect", server.url), Some(checksum))
         .await;
+    let mut parallel = None;
+    for _ in 0..100 {
+        let details = h.service.details(&job.id).await.unwrap();
+        assert!(
+            details.telemetry_error.is_none(),
+            "{:?}",
+            details.telemetry_error
+        );
+        if details
+            .transfer
+            .as_ref()
+            .is_some_and(|t| t.connections > 1 && !t.servers.is_empty())
+        {
+            parallel = Some(details);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let details = parallel.expect("Real aria2 should report multiple connections and servers");
+    assert_eq!(details.range_supported, Some(true));
+    assert!(details.effective_url.unwrap().ends_with("/file"));
+    let transfer = details.transfer.unwrap();
+    assert_eq!(transfer.connection_limit, 8);
+    assert!(transfer.piece_count > 0);
+    assert!(!transfer.piece_groups.is_empty());
+    assert!(transfer.servers.iter().all(|s| s.server == server.url));
     let done = h.finish(&job.id).await;
     assert_eq!(done.status, JobStatus::Completed, "{:?}", done.error);
+    let saved_details = h.service.details(&job.id).await.unwrap();
+    assert!(saved_details.transfer.is_none());
+    assert!(saved_details.telemetry_error.is_none());
+    assert_eq!(saved_details.job.status, JobStatus::Completed);
     assert!(
         server.ranges.load(Ordering::SeqCst) > 2,
         "Expected multiple range requests"

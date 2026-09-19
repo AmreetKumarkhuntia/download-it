@@ -74,6 +74,10 @@ The current finalization service requires a destination filesystem supporting ha
 
 Server behavior determines whether parallel connections or resume are available. More connections do not guarantee higher speed. Restart is required when a source changes, cannot be validated, or does not support resume. Closing the app pauses downloads; it does not run a background service.
 
+Click a download's information button or **View details** to see live connection counts, the transfer's actual connection limit, connected server origins and speeds, piece completion, source URLs with sensitive query strings hidden, validators, file type, checksum and destination. Metadata remains available when the engine cannot be reached. The engine status banner retries automatically and clears after a successful poll; saved history alone does not count as an engine connection.
+
+**Diagnostics** shows persistent engine and download events with an error filter and **Copy logs**. The latest 1,000 events are stored in the local SQLite database (schema 3), with up to 500 shown per view. Download details also contains that file's log. Logs omit source URLs, headers and filenames. See [download diagnostics and speed comparisons](docs/contributing/download-diagnostics.md) for troubleshooting and local tests.
+
 ## License
 
 Original application source: [MIT](LICENSE). aria2: GPL-2.0-or-later. See [third-party notices](licenses/THIRD_PARTY.md). Windows releases include a companion source-and-notices package; see [release packaging](docs/architecture/releases.md).

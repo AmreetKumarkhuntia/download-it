@@ -21,6 +21,19 @@ struct Engine {
 }
 #[async_trait]
 impl DownloadEngine for Engine {
+    async fn ping(&self) -> Result<()> {
+        if self.fail.load(Ordering::SeqCst) > 0 {
+            Err(AppError::new(
+                ErrorCode::Engine,
+                "Engine request getVersion timed out.",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+    async fn details(&self, _: &str) -> Result<Option<TransferDetails>> {
+        Ok(None)
+    }
     async fn enqueue(&self, _: &Job, _: &Settings) -> Result<()> {
         self.enqueues.fetch_add(1, Ordering::SeqCst);
         if self.fail.load(Ordering::SeqCst) > 0 {
@@ -97,13 +110,16 @@ async fn fixture() -> Fixture {
     .await
     .unwrap();
     let engine = Arc::new(Engine::default());
-    let downloads = Arc::new(DownloadService::new(
-        engine.clone(),
-        Arc::new(Probe),
-        db.clone(),
-        db.clone(),
-        Arc::new(Files),
-    ));
+    let downloads = Arc::new(
+        DownloadService::new(
+            engine.clone(),
+            Arc::new(Probe),
+            db.clone(),
+            db.clone(),
+            Arc::new(Files),
+        )
+        .with_diagnostics(db.clone()),
+    );
     let browser = BrowserService::new(downloads.clone(), db.clone());
     Fixture {
         _directory: directory,
@@ -121,6 +137,107 @@ fn prepare() -> BrowserOperation {
     }
 }
 
+#[tokio::test]
+async fn engine_failure_recovers_without_live_jobs_and_logs_only_transitions() {
+    let f = fixture().await;
+    assert!(f.downloads.poll().await.connected);
+    f.engine.fail.store(1, Ordering::SeqCst);
+    let failed = f.downloads.poll().await;
+    assert!(!failed.connected);
+    assert_eq!(failed.consecutive_failures, 1);
+    assert!(failed.last_success_at.is_some());
+    // The database is readable while the engine is unavailable.
+    assert!(f.downloads.list().await.unwrap().is_empty());
+    assert_eq!(f.downloads.poll().await.consecutive_failures, 2);
+    f.engine.fail.store(0, Ordering::SeqCst);
+    let recovered = f.downloads.poll().await;
+    assert!(recovered.connected);
+    assert!(recovered.error.is_none());
+    assert_eq!(recovered.consecutive_failures, 0);
+    let events = f.db.diagnostics(None).await.unwrap();
+    assert_eq!(events.len(), 3);
+    assert_eq!(events[0].event, "engine.connected");
+    assert_eq!(events[1].event, "engine.poll_failed");
+    let reopened = SqliteService::open(&f._directory.path().join("test.sqlite")).unwrap();
+    assert_eq!(reopened.diagnostics(None).await.unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn diagnostic_retention_is_bounded_and_job_logs_exclude_source_secrets() {
+    let f = fixture().await;
+    let job = f
+        .downloads
+        .add(dm_contracts::AddDownloadRequest {
+            url: "https://example.com/private?token=secret".into(),
+            filename: Some("secret-name.bin".into()),
+            destination: f._directory.path().to_string_lossy().into(),
+            expected_sha256: None,
+        })
+        .await
+        .unwrap();
+    let logs = f.db.diagnostics(Some(&job.id)).await.unwrap();
+    assert_eq!(logs.len(), 1);
+    let raw = serde_json::to_string(&logs).unwrap();
+    assert!(!raw.contains("secret"));
+    assert!(!raw.contains("example.com"));
+    for n in 0..1010 {
+        f.db.record(DiagnosticEvent {
+            timestamp: timestamp(),
+            level: "info".into(),
+            event: "retention.test".into(),
+            job_id: None,
+            message: n.to_string(),
+        })
+        .await
+        .unwrap();
+    }
+    let events = f.db.diagnostics(None).await.unwrap();
+    assert_eq!(events.len(), 500);
+    assert_eq!(events[0].message, "1009");
+    let connection = rusqlite::Connection::open(f._directory.path().join("test.sqlite")).unwrap();
+    let retained: u32 = connection
+        .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(retained, 1000);
+    assert!(f.db.diagnostics(Some(&job.id)).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn log_write_failure_is_reported_and_retried_after_storage_recovers() {
+    struct RecoveringLogs {
+        db: Arc<SqliteService>,
+        fail: AtomicUsize,
+    }
+    #[async_trait]
+    impl DiagnosticRepository for RecoveringLogs {
+        async fn record(&self, event: DiagnosticEvent) -> Result<()> {
+            if self.fail.swap(0, Ordering::SeqCst) > 0 {
+                return Err(AppError::new(ErrorCode::Persistence, "Storage unavailable"));
+            }
+            self.db.record(event).await
+        }
+        async fn diagnostics(&self, job_id: Option<&str>) -> Result<Vec<DiagnosticEvent>> {
+            self.db.diagnostics(job_id).await
+        }
+    }
+    let f = fixture().await;
+    let service = DownloadService::new(
+        f.engine.clone(),
+        Arc::new(Probe),
+        f.db.clone(),
+        f.db.clone(),
+        Arc::new(Files),
+    )
+    .with_diagnostics(Arc::new(RecoveringLogs {
+        db: f.db.clone(),
+        fail: AtomicUsize::new(1),
+    }));
+    let failed_log = service.poll().await;
+    assert!(failed_log.connected);
+    assert!(failed_log.log_error.is_some());
+    assert!(service.poll().await.log_error.is_none());
+    assert_eq!(f.db.diagnostics(None).await.unwrap().len(), 1);
+}
 async fn call(service: &BrowserService, operation: BrowserOperation) -> BrowserResponse {
     service
         .handle(BrowserRequest {

@@ -72,6 +72,25 @@ pub struct AddDownloadRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+pub struct DownloadDetails {
+    pub job: JobView,
+    /// Query strings and fragments are hidden; never return authentication tokens.
+    pub source_url: String,
+    pub effective_url: Option<String>,
+    pub content_type: Option<String>,
+    pub etag: Option<String>,
+    pub last_modified: Option<String>,
+    pub range_supported: Option<bool>,
+    pub expected_sha256: Option<String>,
+    pub resume_validator: bool,
+    pub transfer: Option<dm_domain::TransferDetails>,
+    pub telemetry_error: Option<AppError>,
+    pub settings: dm_domain::Settings,
+    pub sampled_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct JobView {
     pub id: String,
     pub source_host: String,

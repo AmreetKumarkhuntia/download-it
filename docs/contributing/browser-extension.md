@@ -20,7 +20,7 @@ pnpm dev
 
 Replace `ARIA2_BIN` with your actual executable path. The first build can take several minutes. Keep the desktop window open and set its default download directory to a test folder. Closing the app pauses its downloads. `pnpm dev:web` is only a UI preview and cannot receive extension downloads.
 
-Close any installed Download It instance before starting the development app. Both use the same per-user application data directory. This version upgrades SQLite to schema 2; older builds cannot reopen that database. Preserve a copy of the application data directory before testing if you need to return to an older build, or use a separate Windows test account.
+Close any installed Download It instance before starting the development app. Both use the same per-user application data directory. This version upgrades SQLite to schema 3 (browser handoffs and diagnostics); older builds cannot reopen that database. Preserve a copy of the application data directory before testing if you need to return to an older build, or use a separate Windows test account.
 
 The existing `tooling/binaries/windows.ps1` is intended for CI, where `RUNNER_TEMP` and `GITHUB_ENV` are set; it is not the local installer.
 

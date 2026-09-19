@@ -11,6 +11,28 @@ export type AddDownloadRequest = { url: string, destination: string, filename: s
 
 export type JobView = { id: string, sourceHost: string, filename: string, destination: string, finalPath: string | null, status: JobStatus, downloadedBytes: number, totalBytes: number | null, speedBytes: number, etaSeconds: number | null, connections: number, createdAt: string, error: AppError | null, };
 
+export type EngineConnection = {
+/**
+ * Origin only: paths, credentials, signed query strings and fragments are excluded.
+ */
+server: string, speedBytes: number, };
+
+export type TransferDetails = { connections: number, connectionLimit: number, speedBytes: number, pieceCount: number, pieceBytes: number, completedPieces: number,
+/**
+ * Up to 120 consecutive groups of pieces, each a completion percentage.
+ */
+pieceGroups: Array<number>, servers: Array<EngineConnection>, };
+
+export type EngineHealth = { connected: boolean, checkedAt: string | null, lastSuccessAt: string | null, consecutiveFailures: number, error: AppError | null, logError: AppError | null, };
+
+export type DiagnosticEvent = { timestamp: string, level: string, event: string, jobId: string | null, message: string, };
+
+export type DownloadDetails = { job: JobView,
+/**
+ * Query strings and fragments are hidden; never return authentication tokens.
+ */
+sourceUrl: string, effectiveUrl: string | null, contentType: string | null, etag: string | null, lastModified: string | null, rangeSupported: boolean | null, expectedSha256: string | null, resumeValidator: boolean, transfer: TransferDetails | null, telemetryError: AppError | null, settings: Settings, sampledAt: string, };
+
 export type BrowserFileEvidence = { method: string, totalBytes: number, contentType: string, etag: string | null, lastModified: string | null, };
 
 export type BrowserOperation = { "operation": "hello" } | { "operation": "prepare", url: string, filename: string | null, evidence: BrowserFileEvidence | null, } | { "operation": "commit" } | { "operation": "abort" } | { "operation": "status" };

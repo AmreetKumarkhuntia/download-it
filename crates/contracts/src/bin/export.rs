@@ -1,8 +1,11 @@
 use dm_contracts::{
     AddDownloadRequest, BrowserFileEvidence, BrowserOperation, BrowserRequest, BrowserResponse,
-    BrowserState, JobView,
+    BrowserState, DownloadDetails, JobView,
 };
-use dm_domain::{AppError, ErrorCode, JobStatus, Settings};
+use dm_domain::{
+    AppError, DiagnosticEvent, EngineConnection, EngineHealth, ErrorCode, JobStatus, Settings,
+    TransferDetails,
+};
 use ts_rs::TS;
 
 fn main() {
@@ -13,6 +16,11 @@ fn main() {
         Settings::decl(),
         AddDownloadRequest::decl(),
         JobView::decl(),
+        EngineConnection::decl(),
+        TransferDetails::decl(),
+        EngineHealth::decl(),
+        DiagnosticEvent::decl(),
+        DownloadDetails::decl(),
         BrowserFileEvidence::decl(),
         BrowserOperation::decl(),
         BrowserRequest::decl(),
@@ -25,6 +33,12 @@ fn main() {
     );
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../packages/contracts/src/index.ts");
+    let content = content
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
     if std::env::args().any(|a| a == "--check") {
         assert_eq!(
             std::fs::read_to_string(path).expect("Run pnpm contracts first"),
