@@ -1,13 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkFrontend, checkTestPlacement, sourceFiles } from './architecture/frontend-rules.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const errors = [];
-function walk(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? walk(join(directory, e.name)) : [join(directory, e.name)],
-  );
-}
 const rules = {
   domain: [],
   contracts: ['dm-domain'],
@@ -31,12 +27,16 @@ for (const [module, allowed] of Object.entries(rules)) {
   )
     errors.push(`${module} depends on a concrete infrastructure library`);
 }
-for (const path of walk(join(root, 'apps/desktop/src'))) {
-  if (!/\.[tj]sx?$/.test(path) || path.replaceAll('\\', '/').includes('/services/')) continue;
-  if (/@tauri-apps\/|node:|\bfetch\(/.test(readFileSync(path, 'utf8')))
-    errors.push(`${path}: desktop or network access belongs in services`);
+errors.push(
+  ...checkFrontend(join(root, 'apps/desktop/src'), join(root, 'apps/desktop/tsconfig.json')),
+);
+for (const directory of ['apps', 'crates', 'packages', 'tooling']) {
+  for (const path of sourceFiles(join(root, directory))) {
+    if (!/\.(?:[cm]?[jt]sx?|rs)$/.test(path)) continue;
+    errors.push(...checkTestPlacement(path, readFileSync(path, 'utf8')));
+  }
 }
-for (const path of walk(join(root, 'apps/browser-extension/src'))) {
+for (const path of sourceFiles(join(root, 'apps/browser-extension/src'))) {
   if (!/\.[tj]sx?$/.test(path)) continue;
   if (/@tauri-apps\/|node:|\bfetch\(/.test(readFileSync(path, 'utf8')))
     errors.push(`${path}: browser downloads must go through the native bridge`);

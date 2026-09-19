@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 import manifest from './manifest.json';
 import pkg from './package.json';
@@ -27,5 +27,4 @@ export default defineConfig({
       output: { entryFileNames: '[name].js' },
     },
   },
-  test: { environment: 'node' },
 });

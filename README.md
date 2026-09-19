@@ -64,7 +64,9 @@ PowerShell: set `$env:ARIA2_BIN` before running the integration test command. Re
 
 `apps/desktop` contains the renderer and thin Tauri host. `crates/domain` defines internal models. `crates/application` owns workflows and ports. `crates/services/{aria2,sqlite,filesystem,process}` implement infrastructure. `crates/contracts` owns the desktop API; `packages/contracts` contains generated TypeScript types.
 
-See [architecture](docs/architecture/overview.md), [adding integrations](docs/contributing/adding-integrations.md), and [release packaging](docs/architecture/releases.md).
+The renderer separates `pages`, connected `widgets`, presentational `components` (including shared `cards`), and `services` for clients and logic. `App.tsx` composes the pages. `style.css` holds the design tokens and semantic classes. All tests live in root `tests/`, including frontend, Rust, browser-extension and tooling tests.
+
+See [architecture](docs/architecture/overview.md), [frontend structure](docs/architecture/frontend.md), [tests](tests/README.md), [adding integrations](docs/contributing/adding-integrations.md), and [release packaging](docs/architecture/releases.md).
 
 ## Data and behavior
 

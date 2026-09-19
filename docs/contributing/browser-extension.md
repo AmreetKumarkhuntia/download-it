@@ -82,7 +82,7 @@ pnpm build
 pnpm browser:build
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-node tooling/testing/transfers.mjs
+node tests/rust/run-transfers.mjs
 ```
 
 Real transfer tests require `ARIA2_BIN`. Windows Rust tests also exercise pipe framing and exclusive listener creation. CI builds and tests the extension and runs Rust tests on its native OS matrix; interactive browser installation remains a manual smoke test.

@@ -3,12 +3,14 @@
 ## Dependency direction
 
 ```text
-React features → desktop client → Tauri commands → application services → domain
-                                                    ↓ interfaces
-                                     aria2 / SQLite / filesystem / process
+React pages → widgets → frontend services/client → Tauri commands
+                ↓                                      ↓
+            components                        application services → domain
+                                                       ↓ interfaces
+                                          aria2 / SQLite / filesystem / process
 ```
 
-The desktop bootstrap is the composition root. It is the only place that constructs concrete services and connects them. The Rust workspace enforces crate boundaries; `tooling/check-boundaries.mjs` rejects infrastructure dependencies in domain/application/contracts and native API access outside frontend services.
+The desktop bootstrap is the composition root. It is the only place that constructs concrete services and connects them. The Rust workspace enforces crate boundaries; `tooling/check-boundaries.mjs` rejects infrastructure dependencies in domain/application/contracts and enforces frontend layer ownership, client isolation and centralized test placement. See [frontend structure](frontend.md) for the renderer's components, widgets, services and styling conventions.
 
 ## Ownership
 
@@ -36,7 +38,7 @@ Completion verifies length and optional SHA-256, records the intended final path
 
 ## Interfaces
 
-Desktop commands: list_downloads, add_download, pause_download, resume_download (explicit restart flag), cancel_download, get_settings, update_settings. Events: downloads-changed and engine-error. These are internal v0.1 contracts.
+Desktop commands: list_downloads, add_download, pause_download, resume_download (explicit restart flag), cancel_download, get_settings, update_settings, get_engine_health, get_download_details and get_diagnostics. Events: downloads-changed and engine-health. These are internal v0.1 contracts. Engine health is independent of saved job data; live telemetry failures do not remove stored source metadata or diagnostic events.
 
 Browser protocol v1 exposes hello, prepare, commit, abort, and status through request IDs. The Windows native host transports bounded, length-prefixed JSON over stdio and a current-user-only named pipe. The desktop remains the sole owner of the database and download engine. Prepared handoffs expire after 30 seconds without enqueueing; commit atomically persists ownership and a job before contacting aria2. Idempotent retries return that job. Failed engine submissions return ownership only after confirmed removal; uncertain submissions remain committing until desktop restart recovers them as paused jobs. SQLite migration 2 adds handoff records without changing existing job payloads. Existing source metadata gains an optional MIME type with a default for older records.
 

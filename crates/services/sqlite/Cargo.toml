@@ -15,3 +15,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [dev-dependencies]
 dm-contracts.workspace = true
 tempfile.workspace = true
+
+[[test]]
+name = "browser_handoffs"
+path = "../../../tests/rust/sqlite/browser_handoffs.rs"

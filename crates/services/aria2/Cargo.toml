@@ -19,3 +19,7 @@ dm-filesystem.workspace = true
 dm-contracts.workspace = true
 tempfile.workspace = true
 sha2 = "0.10"
+
+[[test]]
+name = "transfers"
+path = "../../../tests/rust/aria2/transfers.rs"
