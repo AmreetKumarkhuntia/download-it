@@ -45,6 +45,8 @@ pnpm dev
 
 `pnpm dev:web` opens the interface preview at http://localhost:1420. Downloads are deliberately unavailable in the browser preview; they require the desktop backend. `pnpm build` builds only the frontend; `pnpm desktop:build` builds platform installers on the current operating system.
 
+Prettier is a workspace development dependency installed by `pnpm install`. Formatting uses two spaces, a 100-character line width and LF line endings. Run `pnpm format` for all Prettier-supported source files and Rust, `pnpm format:prettier` for JS/TS/TSX, CSS, HTML, JSON, YAML and Markdown, or `pnpm format:rust` for Rust. `pnpm format:check` verifies formatting in CI. Generated files, build output and third-party license text are excluded. VS Code workspace settings enable format on save with the recommended Prettier and rust-analyzer extensions.
+
 ## Verification
 
 ```sh

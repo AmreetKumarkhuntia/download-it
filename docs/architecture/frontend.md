@@ -28,6 +28,8 @@ Components receive everything through props. For example, `DownloadCard` receive
 
 Use semantic classes such as `download-card`, `page-heading` and `button-primary`. Plain CSS replaces Tailwind. Colors, font family, font sizes, spacing, dimensions and effects are declared in the first `:root` block of `style.css`; declarations refer to them with `var(...)`. The primary font is `--primary-font`. Extend the token set when adding a shared visual value.
 
+The stylesheet starts with a section index. Tokens are grouped by purpose: colors (subdivided by UI area), typography, spacing, dimensions, icon sizes, radii, effects and motion. Numeric scales run from small to large. Color names describe their role or state, such as `--color-button-primary-hover-surface` and `--color-engine-status-stale-text`. Component rules follow in labeled sections, with responsive layouts and reduced-motion overrides together at the end. Keep related selectors and state variants in the same section.
+
 Inline styles are limited to data-dependent custom properties: `--progress` and `--piece-completion`. Responsive breakpoints remain literal media-query values at 1000px and 700px because CSS custom properties cannot be substituted into media queries.
 
 ## Adding a screen or behavior

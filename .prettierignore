@@ -1,11 +1,19 @@
+# Dependencies and build/test output
 target
 dist
 node_modules
+coverage
+playwright-report
+test-results
+/release
+
+# Generated files and bundled assets
 pnpm-lock.yaml
 packages/contracts/src/index.ts
 apps/desktop/src-tauri/gen
 apps/desktop/src-tauri/binaries
 apps/desktop/src-tauri/icons
+
+# Third-party license text
 licenses/GPL-2.0.txt
 licenses/aria2-windows
-/release
