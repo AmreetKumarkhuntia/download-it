@@ -4,7 +4,7 @@ members = ["crates/domain", "crates/contracts", "crates/application", "crates/se
 default-members = ["crates/domain", "crates/contracts", "crates/application", "crates/services/aria2", "crates/services/sqlite", "crates/services/filesystem", "crates/services/process", "crates/services/browser", "apps/native-host"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.2.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.85"

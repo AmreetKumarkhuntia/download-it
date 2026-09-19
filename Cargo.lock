@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "dm-application"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "dm-contracts",
@@ -858,7 +858,7 @@ dependencies = [
 
 [[package]]
 name = "dm-aria2"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "dm-application",
@@ -876,7 +876,7 @@ dependencies = [
 
 [[package]]
 name = "dm-browser"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "dm-application",
  "dm-contracts",
@@ -889,7 +889,7 @@ dependencies = [
 
 [[package]]
 name = "dm-contracts"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "dm-domain",
  "serde",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "dm-domain"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "serde",
  "ts-rs",
@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "dm-filesystem"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "dm-application",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "dm-process"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "dm-application",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "dm-sqlite"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "dm-application",
@@ -960,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "download-it"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "dm-application",
  "dm-aria2",
@@ -979,7 +979,7 @@ dependencies = [
 
 [[package]]
 name = "download-it-native-host"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "dm-browser",
  "dm-contracts",
