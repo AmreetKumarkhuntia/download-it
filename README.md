@@ -13,7 +13,9 @@ Built with **Tauri 2 · React · TypeScript · Rust · SQLite · aria2**.
 - Optional SHA-256 validation, safe filenames, collision handling, and publication only after completion.
 - Local authenticated aria2 RPC, a single desktop instance, and graceful shutdown.
 
-Browser integration, logged-in downloads, media extraction, archive extraction, scheduling, and background/tray operation are future phases. The app is not a video-site downloader yet.
+A development browser extension supports Chrome and Edge on Windows: manual link submission and optional automatic capture of verifiable direct file downloads. See [browser extension setup and local testing](docs/contributing/browser-extension.md). Store publication and installer integration remain future work.
+
+Logged-in downloads, media extraction, archive extraction, scheduling, and background/tray operation are future phases. The app is not a video-site downloader yet.
 
 ## Install and release versions
 

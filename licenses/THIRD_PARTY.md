@@ -15,6 +15,8 @@ aria2 runs as an independent executable and is controlled through its existing J
 
 Rust dependencies and versions are recorded in Cargo.lock; JavaScript dependencies and versions are recorded in pnpm-lock.yaml. React, Tauri, Tailwind CSS, Radix UI, lucide, SQLite bindings, and their transitive dependencies retain their respective licenses. The Button component follows shadcn/ui's MIT-licensed composition pattern.
 
+The browser bridge uses Tokio (MIT) and windows-sys (MIT OR Apache-2.0) for local transport and Windows API bindings. The extension uses Vite and TypeScript tooling and the MIT-licensed DefinitelyTyped Chrome API declarations during development. Their exact versions and transitive dependencies are recorded in the same lockfiles. The extension icon reuses the application's own icon.
+
 ## Windows releases
 
 The Windows release workflow verifies the official standalone binary archive hash and preserves its upstream notices in `licenses/aria2-windows/`. The companion release ZIP contains pinned aria2 and dependency source archives, their hashes, and the upstream `Dockerfile.mingw` / `mingw-config` build recipes. The dependency archives retain their own license files. These files must stay available alongside the binary release; retain them when redistributing.

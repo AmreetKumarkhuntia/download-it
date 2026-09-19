@@ -10,13 +10,13 @@ use tokio::sync::Mutex;
 use url::Url;
 
 pub struct DownloadService {
-    engine: Arc<dyn DownloadEngine>,
-    probe: Arc<dyn SourceProbe>,
-    jobs: Arc<dyn JobRepository>,
-    settings: Arc<dyn SettingsRepository>,
-    files: Arc<dyn FileStore>,
+    pub(super) engine: Arc<dyn DownloadEngine>,
+    pub(super) probe: Arc<dyn SourceProbe>,
+    pub(super) jobs: Arc<dyn JobRepository>,
+    pub(super) settings: Arc<dyn SettingsRepository>,
+    pub(super) files: Arc<dyn FileStore>,
     // Serializes state changes, including polling, so pause/cancel cannot race completion.
-    operation: Mutex<()>,
+    pub(super) operation: Mutex<()>,
 }
 
 impl DownloadService {
@@ -61,6 +61,21 @@ impl DownloadService {
 
     pub async fn add(&self, input: AddDownloadRequest) -> Result<JobView> {
         let _guard = self.operation.lock().await;
+        let mut job = self.prepare_job(input).await?;
+        self.jobs.save(&job).await?;
+        if let Err(e) = self
+            .engine
+            .enqueue(&job, &self.settings.load_settings().await?)
+            .await
+        {
+            job.status = JobStatus::Failed;
+            job.error = Some(e);
+            self.jobs.save(&job).await?;
+        }
+        Ok(JobView::from(&job))
+    }
+
+    pub(super) async fn prepare_job(&self, input: AddDownloadRequest) -> Result<Job> {
         let url = Url::parse(input.url.trim()).map_err(|_| {
             AppError::new(
                 ErrorCode::InvalidInput,
@@ -111,7 +126,7 @@ impl DownloadService {
         let filename = safe_filename(&candidate)?;
         let id = uuid::Uuid::new_v4().simple().to_string();
         let staging = self.files.stage(&input.destination, &id).await?;
-        let mut job = Job {
+        let job = Job {
             id,
             url: url.to_string(),
             source_host: url.host_str().unwrap().into(),
@@ -132,20 +147,10 @@ impl DownloadService {
                 .to_string(),
             error: None,
         };
-        self.jobs.save(&job).await?;
-        if let Err(e) = self
-            .engine
-            .enqueue(&job, &self.settings.load_settings().await?)
-            .await
-        {
-            job.status = JobStatus::Failed;
-            job.error = Some(e);
-            self.jobs.save(&job).await?;
-        }
-        Ok(JobView::from(&job))
+        Ok(job)
     }
 
-    async fn get(&self, id: &str) -> Result<Job> {
+    pub(super) async fn get(&self, id: &str) -> Result<Job> {
         self.jobs
             .list()
             .await?

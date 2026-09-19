@@ -37,6 +37,7 @@ function fixture(t) {
     'Cargo.toml',
     'Cargo.lock',
     'apps/desktop/package.json',
+    'apps/browser-extension/package.json',
     'packages/contracts/package.json',
     'apps/desktop/src-tauri/tauri.conf.json',
   ]) {
@@ -117,11 +118,14 @@ test('one version is applied to every app manifest and workspace crate', (t) => 
     'dm-sqlite',
     'dm-filesystem',
     'dm-process',
+    'dm-browser',
+    'download-it-native-host',
     'download-it',
   ];
   stampWorkspace(root, '1.0.0', names);
   for (const file of [
     'apps/desktop/package.json',
+    'apps/browser-extension/package.json',
     'packages/contracts/package.json',
     'apps/desktop/src-tauri/tauri.conf.json',
   ]) {

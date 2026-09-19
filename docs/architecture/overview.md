@@ -36,7 +36,9 @@ Completion verifies length and optional SHA-256, records the intended final path
 
 ## Interfaces
 
-Desktop commands: list_downloads, add_download, pause_download, resume_download (explicit restart flag), cancel_download, get_settings, update_settings. Events: downloads-changed and engine-error. These are internal v0.1 contracts; a future browser transport will have its own versioned envelope.
+Desktop commands: list_downloads, add_download, pause_download, resume_download (explicit restart flag), cancel_download, get_settings, update_settings. Events: downloads-changed and engine-error. These are internal v0.1 contracts.
+
+Browser protocol v1 exposes hello, prepare, commit, abort, and status through request IDs. The Windows native host transports bounded, length-prefixed JSON over stdio and a current-user-only named pipe. The desktop remains the sole owner of the database and download engine. Prepared handoffs expire after 30 seconds without enqueueing; commit atomically persists ownership and a job before contacting aria2. Idempotent retries return that job. Failed engine submissions return ownership only after confirmed removal; uncertain submissions remain committing until desktop restart recovers them as paused jobs. SQLite migration 2 adds handoff records without changing existing job payloads. Existing source metadata gains an optional MIME type with a default for older records.
 
 Internal jobs include URLs and source validators. JobView includes display and progress data only. u64 byte counts are serialized to TypeScript numbers; supported sizes remain below JavaScript's 2^53 exact-integer limit. The UI supports values above 4 GB without 32-bit truncation.
 

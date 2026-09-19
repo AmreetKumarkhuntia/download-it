@@ -7,9 +7,9 @@
 5. Add transport DTOs only when the interface requires them, run pnpm contracts, and implement the typed client in frontend services. UI feature code imports the client and contract types.
 6. Add a service contract test and update dependency rules, architecture documentation, and third-party notices.
 
-## Planned adapters
+## Integration adapters
 
-- Browser extension: apps/browser-extension, Native Messaging host, explicit link submission. No access to the engine RPC token. Authenticate/validate the native transport independently.
+- Browser extension: apps/browser-extension and apps/native-host provide the Windows development integration, including optional capture. The browser service uses current-user Windows pipes and versioned contracts; it cannot access the engine RPC token. See [setup and tests](browser-extension.md).
 - Media extraction: a future MediaExtractor port and yt-dlp service. Extraction finds formats and source URLs. It is not ZIP extraction.
 - Media processing: a future MediaProcessor port and FFmpeg service; ffprobe inspects streams. Audio/video muxing is separate from ordinary HTTP range assembly.
 - Alternative rendering: replace apps/desktop's frontend while retaining application contracts. Business logic must never move into React hooks.

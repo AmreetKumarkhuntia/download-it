@@ -7,15 +7,19 @@
     "dev:web": "pnpm --filter @dm/desktop dev",
     "build": "pnpm --filter @dm/desktop build",
     "desktop:build": "pnpm --filter @dm/desktop tauri build",
-    "test": "pnpm --filter @dm/desktop test",
-    "check": "node tooling/check-boundaries.mjs && pnpm --filter @dm/desktop typecheck",
+    "test": "pnpm --filter @dm/desktop test && pnpm --filter @dm/browser-extension test && node --test tooling/browser/*.test.mjs",
+    "check": "node tooling/check-boundaries.mjs && pnpm --filter @dm/desktop typecheck && pnpm --filter @dm/browser-extension typecheck",
     "format": "prettier --write . && cargo fmt --all",
     "format:check": "prettier --check . && cargo fmt --all --check",
     "contracts": "cargo run -p dm-contracts --bin export",
     "contracts:check": "cargo run -p dm-contracts --bin export -- --check",
     "prepare:aria2": "node tooling/binaries/prepare.mjs",
     "test:release": "node --test tooling/release/*.test.mjs",
-    "release": "node tooling/release/run.mjs"
+    "release": "node tooling/release/run.mjs",
+    "browser:build": "pnpm --filter @dm/browser-extension build && cargo build -p download-it-native-host",
+    "browser:register": "node tooling/browser/registration.mjs",
+    "browser:unregister": "node tooling/browser/registration.mjs unregister",
+    "browser:test-fixture": "node tooling/browser/fixture.mjs"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",

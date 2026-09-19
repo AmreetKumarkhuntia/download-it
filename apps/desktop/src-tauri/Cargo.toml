@@ -15,6 +15,7 @@ dm-aria2.workspace = true
 dm-sqlite.workspace = true
 dm-filesystem.workspace = true
 dm-process.workspace = true
+dm-browser.workspace = true
 tokio.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

@@ -21,7 +21,7 @@ The highest change wins when a push includes multiple commits. Use Conventional 
 1. Validate formatting, architecture boundaries, generated contracts, frontend tests/build, and release-tooling tests.
 2. Run Rust tests, Clippy, real aria2 transfer tests, and desktop compilation on Windows x64, Linux x64, macOS Intel, and macOS Apple Silicon.
 3. On `master`, semantic-release determines whether a release is needed. If not, it creates no package, tag, or release.
-4. For a release, stamp the version into the Rust workspace and its Cargo.lock entries, desktop and contracts package manifests, and Tauri config. The UI reads the desktop package version at build time.
+4. For a release, stamp the version into the Rust workspace and its Cargo.lock entries, desktop, browser-extension and contracts package manifests, and Tauri config. The UI reads the desktop package version at build time; the extension build derives its manifest version from its package.
 5. Verify pinned upstream binary/source hashes, preserve engine notices, and build the Windows NSIS installer. Package the exact version-stamped application source, upstream engine/dependency sources and recipes, build metadata, and SHA-256 checksums.
 6. Only after preparation succeeds, create `vX.Y.Z` and publish the GitHub Release and assets. No follow-on tag workflow is needed, and no issue/PR comments or labels are created.
 

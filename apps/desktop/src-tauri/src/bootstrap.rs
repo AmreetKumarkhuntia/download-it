@@ -1,6 +1,6 @@
 use dm_application::{
-    ports::{ProcessSupervisor, SettingsRepository},
-    services::DownloadService,
+    ports::{BrowserHandoffRepository, ProcessSupervisor, SettingsRepository},
+    services::{BrowserService, DownloadService},
 };
 use dm_aria2::{Aria2Engine, HttpSourceProbe};
 use dm_domain::{AppError, ErrorCode, Result};
@@ -13,6 +13,9 @@ use tauri::Manager;
 pub struct AppServices {
     pub downloads: Arc<DownloadService>,
     pub process: Arc<dyn ProcessSupervisor>,
+    pub browser: Arc<BrowserService>,
+    #[cfg(windows)]
+    pub _browser_bridge: dm_browser::windows::BrowserBridge,
 }
 
 pub async fn initialize(app: &tauri::AppHandle) -> Result<AppServices> {
@@ -77,11 +80,26 @@ pub async fn initialize(app: &tauri::AppHandle) -> Result<AppServices> {
         engine,
         Arc::new(HttpSourceProbe::new()?),
         db.clone(),
-        db,
+        db.clone(),
         Arc::new(LocalFileStore),
     ));
     downloads.recover().await?;
-    Ok(AppServices { downloads, process })
+    db.recover_handoffs().await?;
+    let browser = Arc::new(BrowserService::new(downloads.clone(), db));
+    #[cfg(windows)]
+    let bridge = dm_browser::windows::start(browser.clone()).map_err(|_| {
+        AppError::new(
+            ErrorCode::Permission,
+            "Cannot start the browser bridge. Close other development instances and try again.",
+        )
+    })?;
+    Ok(AppServices {
+        downloads,
+        process,
+        browser,
+        #[cfg(windows)]
+        _browser_bridge: bridge,
+    })
 }
 
 fn binary_path() -> Result<PathBuf> {

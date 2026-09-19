@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["crates/domain", "crates/contracts", "crates/application", "crates/services/*", "apps/desktop/src-tauri"]
-default-members = ["crates/domain", "crates/contracts", "crates/application", "crates/services/aria2", "crates/services/sqlite", "crates/services/filesystem", "crates/services/process"]
+members = ["crates/domain", "crates/contracts", "crates/application", "crates/services/*", "apps/desktop/src-tauri", "apps/native-host"]
+default-members = ["crates/domain", "crates/contracts", "crates/application", "crates/services/aria2", "crates/services/sqlite", "crates/services/filesystem", "crates/services/process", "crates/services/browser", "apps/native-host"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,12 +17,13 @@ dm-aria2 = { path = "crates/services/aria2" }
 dm-sqlite = { path = "crates/services/sqlite" }
 dm-filesystem = { path = "crates/services/filesystem" }
 dm-process = { path = "crates/services/process" }
+dm-browser = { path = "crates/services/browser" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 async-trait = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs", "io-util", "net"] }
 uuid = { version = "1", features = ["v4"] }
-ts-rs = "10"
+ts-rs = { version = "10", features = ["no-serde-warnings"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tempfile = "3"
 

@@ -1,0 +1,53 @@
+:root {
+  color-scheme: light dark;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+}
+body {
+  width: 340px;
+  padding: 18px;
+  margin: 0;
+}
+h1 {
+  font-size: 22px;
+  margin: 0;
+}
+label {
+  display: block;
+  margin-top: 16px;
+  font-weight: 600;
+}
+input[type='url'],
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0;
+  border: 1px solid #8887;
+  border-radius: 6px;
+  font: inherit;
+}
+button {
+  padding: 8px 12px;
+  border: 1px solid #8887;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.toggle {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+}
+.hint {
+  font-size: 12px;
+  opacity: 0.75;
+}
+#result {
+  overflow-wrap: anywhere;
+}

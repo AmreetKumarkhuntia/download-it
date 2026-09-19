@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use dm_application::ports::{JobRepository, SettingsRepository};
-use dm_domain::{AppError, ErrorCode, Job, Result, Settings};
+use dm_application::ports::{BrowserHandoffRepository, JobRepository, SettingsRepository};
+use dm_domain::{AppError, BrowserHandoff, ErrorCode, HandoffState, Job, Result, Settings};
 use rusqlite::{Connection, OptionalExtension};
 use std::{path::Path, sync::mpsc};
 use tokio::sync::oneshot;
@@ -28,7 +28,7 @@ impl SqliteService {
         let version: u32 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(database_error)?;
-        if version > 1 {
+        if version > 2 {
             return Err(AppError::new(
                 ErrorCode::Persistence,
                 "This database belongs to a newer application version.",
@@ -37,6 +37,12 @@ impl SqliteService {
         if version == 0 {
             let tx = connection.transaction().map_err(database_error)?;
             tx.execute_batch(include_str!("../migrations/001_initial.sql"))
+                .map_err(database_error)?;
+            tx.commit().map_err(database_error)?;
+        }
+        if version < 2 {
+            let tx = connection.transaction().map_err(database_error)?;
+            tx.execute_batch(include_str!("../migrations/002_browser_handoffs.sql"))
                 .map_err(database_error)?;
             tx.commit().map_err(database_error)?;
         }
@@ -62,6 +68,107 @@ impl SqliteService {
             }))
             .map_err(database_error)?;
         receiver.await.map_err(database_error)?
+    }
+}
+
+#[async_trait]
+impl BrowserHandoffRepository for SqliteService {
+    async fn handoff(&self, request_id: &str) -> Result<Option<BrowserHandoff>> {
+        let id = request_id.to_owned();
+        self.run(move |c| {
+            let raw: Option<String> = c
+                .query_row(
+                    "SELECT payload FROM browser_handoffs WHERE request_id=?1",
+                    [id],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(database_error)?;
+            raw.map(|s| serde_json::from_str(&s).map_err(database_error))
+                .transpose()
+        })
+        .await
+    }
+
+    async fn save_handoff(&self, handoff: &BrowserHandoff) -> Result<()> {
+        let handoff = handoff.clone();
+        self.run(move |c| {
+            let payload = serde_json::to_string(&handoff).map_err(database_error)?;
+            c.execute("INSERT INTO browser_handoffs(request_id,payload) VALUES (?1,?2) ON CONFLICT(request_id) DO UPDATE SET payload=excluded.payload", (&handoff.request_id, payload)).map_err(database_error)?;
+            Ok(())
+        }).await
+    }
+
+    async fn commit_handoff(&self, handoff: &BrowserHandoff) -> Result<()> {
+        let handoff = handoff.clone();
+        self.run(move |c| {
+            let tx = c.transaction().map_err(database_error)?;
+            let job = &handoff.job;
+            tx.execute(
+                "INSERT INTO jobs(id,created_at,payload) VALUES (?1,?2,?3)",
+                (
+                    &job.id,
+                    &job.created_at,
+                    serde_json::to_string(job).map_err(database_error)?,
+                ),
+            )
+            .map_err(database_error)?;
+            tx.execute(
+                "UPDATE browser_handoffs SET payload=?2 WHERE request_id=?1",
+                (
+                    &handoff.request_id,
+                    serde_json::to_string(&handoff).map_err(database_error)?,
+                ),
+            )
+            .map_err(database_error)?;
+            tx.commit().map_err(database_error)
+        })
+        .await
+    }
+
+    async fn recover_handoffs(&self) -> Result<()> {
+        // DownloadService::recover has already paused every durable interrupted job.
+        self.run(|c| {
+            let records: Vec<String> = c
+                .prepare("SELECT payload FROM browser_handoffs")
+                .map_err(database_error)?
+                .query_map([], |r| r.get(0))
+                .map_err(database_error)?
+                .collect::<std::result::Result<_, _>>()
+                .map_err(database_error)?;
+            let tx = c.transaction().map_err(database_error)?;
+            for raw in records {
+                let mut h: BrowserHandoff = serde_json::from_str(&raw).map_err(database_error)?;
+                if h.state == HandoffState::Committing {
+                    let job: String = tx
+                        .query_row("SELECT payload FROM jobs WHERE id=?1", [&h.job.id], |r| {
+                            r.get(0)
+                        })
+                        .map_err(database_error)?;
+                    let job: Job = serde_json::from_str(&job).map_err(database_error)?;
+                    // A crash can occur after storing a rejected job but before updating
+                    // its handoff. Do not turn that failed enqueue into acceptance.
+                    h.state = if matches!(
+                        job.status,
+                        dm_domain::JobStatus::Failed | dm_domain::JobStatus::Cancelled
+                    ) {
+                        HandoffState::Failed
+                    } else {
+                        HandoffState::Committed
+                    };
+                    tx.execute(
+                        "UPDATE browser_handoffs SET payload=?2 WHERE request_id=?1",
+                        (
+                            &h.request_id,
+                            serde_json::to_string(&h).map_err(database_error)?,
+                        ),
+                    )
+                    .map_err(database_error)?;
+                }
+            }
+            tx.commit().map_err(database_error)
+        })
+        .await
     }
 }
 

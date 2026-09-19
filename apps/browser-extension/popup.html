@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Download It</title>
+  </head>
+  <body>
+    <h1>Download It</h1>
+    <p id="connection" role="status">Checking desktop app…</p>
+    <form id="submit">
+      <label for="url">Direct file URL</label>
+      <input id="url" type="url" required placeholder="https://example.com/file.zip" />
+      <button id="send" type="submit">Send to Download It</button>
+    </form>
+    <label class="toggle"
+      ><input id="automatic" type="checkbox" /> Automatically capture supported downloads</label
+    >
+    <p class="hint">
+      Requires download and site access. Files that need browser login, cannot be verified, or
+      finish before capture stay in your browser. Open Download It first.
+    </p>
+    <label for="excluded">Excluded domains</label>
+    <textarea id="excluded" rows="2" placeholder="example.com, files.example.org"></textarea>
+    <button id="save" type="button">Save exclusions</button>
+    <p id="result" role="status"></p>
+    <button id="recover" type="button">Check pending handoffs</button>
+    <script type="module" src="/src/popup.ts"></script>
+  </body>
+</html>

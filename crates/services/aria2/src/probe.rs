@@ -79,6 +79,13 @@ impl SourceProbe for HttpSourceProbe {
             etag: get(header::ETAG),
             last_modified: get(header::LAST_MODIFIED),
             filename,
+            content_type: get(header::CONTENT_TYPE).map(|s| {
+                s.split(';')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_ascii_lowercase()
+            }),
         })
     }
 }

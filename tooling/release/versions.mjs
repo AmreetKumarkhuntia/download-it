@@ -42,6 +42,7 @@ export function stampWorkspace(root, version, workspaceNames) {
   );
   for (const file of [
     'apps/desktop/package.json',
+    'apps/browser-extension/package.json',
     'packages/contracts/package.json',
     'apps/desktop/src-tauri/tauri.conf.json',
   ]) {

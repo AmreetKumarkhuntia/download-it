@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-const root = new URL('../', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
 const errors = [];
 function walk(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((e) =>
@@ -15,6 +16,7 @@ const rules = {
   'services/sqlite': ['dm-domain', 'dm-application'],
   'services/filesystem': ['dm-domain', 'dm-application'],
   'services/process': ['dm-domain', 'dm-application'],
+  'services/browser': ['dm-domain', 'dm-application', 'dm-contracts'],
 };
 for (const [module, allowed] of Object.entries(rules)) {
   const source = readFileSync(join(root, 'crates', module, 'Cargo.toml'), 'utf8').split(
@@ -30,9 +32,14 @@ for (const [module, allowed] of Object.entries(rules)) {
     errors.push(`${module} depends on a concrete infrastructure library`);
 }
 for (const path of walk(join(root, 'apps/desktop/src'))) {
-  if (!/\.[tj]sx?$/.test(path) || path.includes('/services/')) continue;
+  if (!/\.[tj]sx?$/.test(path) || path.replaceAll('\\', '/').includes('/services/')) continue;
   if (/@tauri-apps\/|node:|\bfetch\(/.test(readFileSync(path, 'utf8')))
     errors.push(`${path}: desktop or network access belongs in services`);
+}
+for (const path of walk(join(root, 'apps/browser-extension/src'))) {
+  if (!/\.[tj]sx?$/.test(path)) continue;
+  if (/@tauri-apps\/|node:|\bfetch\(/.test(readFileSync(path, 'utf8')))
+    errors.push(`${path}: browser downloads must go through the native bridge`);
 }
 if (errors.length) {
   console.error(errors.join('\n'));

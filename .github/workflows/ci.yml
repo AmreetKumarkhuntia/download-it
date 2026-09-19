@@ -29,6 +29,7 @@ jobs:
       - run: pnpm test
       - run: pnpm test:release
       - run: pnpm build
+      - run: pnpm --filter @dm/browser-extension build
   desktop:
     strategy:
       fail-fast: false

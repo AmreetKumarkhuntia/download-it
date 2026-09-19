@@ -33,6 +33,14 @@ pub trait JobRepository: Send + Sync {
     async fn list(&self) -> Result<Vec<Job>>;
 }
 #[async_trait]
+pub trait BrowserHandoffRepository: Send + Sync {
+    async fn handoff(&self, request_id: &str) -> Result<Option<dm_domain::BrowserHandoff>>;
+    async fn save_handoff(&self, handoff: &dm_domain::BrowserHandoff) -> Result<()>;
+    /// Atomically records desktop ownership and inserts the job before engine submission.
+    async fn commit_handoff(&self, handoff: &dm_domain::BrowserHandoff) -> Result<()>;
+    async fn recover_handoffs(&self) -> Result<()>;
+}
+#[async_trait]
 pub trait SettingsRepository: Send + Sync {
     async fn load_settings(&self) -> Result<Settings>;
     async fn save_settings(&self, settings: &Settings) -> Result<()>;

@@ -10,3 +10,13 @@ export type Settings = { maxActiveDownloads: number, connectionsPerDownload: num
 export type AddDownloadRequest = { url: string, destination: string, filename: string | null, expectedSha256: string | null, };
 
 export type JobView = { id: string, sourceHost: string, filename: string, destination: string, finalPath: string | null, status: JobStatus, downloadedBytes: number, totalBytes: number | null, speedBytes: number, etaSeconds: number | null, connections: number, createdAt: string, error: AppError | null, };
+
+export type BrowserFileEvidence = { method: string, totalBytes: number, contentType: string, etag: string | null, lastModified: string | null, };
+
+export type BrowserOperation = { "operation": "hello" } | { "operation": "prepare", url: string, filename: string | null, evidence: BrowserFileEvidence | null, } | { "operation": "commit" } | { "operation": "abort" } | { "operation": "status" };
+
+export type BrowserRequest = { version: number, requestId: string, command: BrowserOperation, };
+
+export type BrowserState = "ready" | "prepared" | "committing" | "committed" | "aborted" | "failed" | "not_found" | "error";
+
+export type BrowserResponse = { version: number, requestId: string, state: BrowserState, job: JobView | null, error: AppError | null, };

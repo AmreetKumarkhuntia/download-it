@@ -32,6 +32,7 @@ pub fn exit(app: &tauri::AppHandle, api: &tauri::ExitRequestApi, stopping: Arc<A
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppServices>();
+        state.browser.stop();
         let _ = state.downloads.shutdown().await;
         let _ = state.process.stop().await;
         app.exit(0);

@@ -875,6 +875,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dm-browser"
+version = "0.1.0"
+dependencies = [
+ "dm-application",
+ "dm-contracts",
+ "dm-domain",
+ "serde",
+ "serde_json",
+ "tokio",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "dm-contracts"
 version = "0.1.0"
 dependencies = [
@@ -922,6 +935,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "dm-application",
+ "dm-contracts",
  "dm-domain",
  "rusqlite",
  "serde_json",
@@ -950,6 +964,7 @@ version = "0.1.0"
 dependencies = [
  "dm-application",
  "dm-aria2",
+ "dm-browser",
  "dm-contracts",
  "dm-domain",
  "dm-filesystem",
@@ -959,6 +974,17 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
+ "tokio",
+]
+
+[[package]]
+name = "download-it-native-host"
+version = "0.1.0"
+dependencies = [
+ "dm-browser",
+ "dm-contracts",
+ "dm-domain",
+ "serde_json",
  "tokio",
 ]
 

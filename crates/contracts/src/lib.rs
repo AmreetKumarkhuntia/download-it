@@ -2,6 +2,65 @@ use dm_domain::{AppError, Job, JobStatus};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+pub const BROWSER_PROTOCOL_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserFileEvidence {
+    pub method: String,
+    #[ts(type = "number")]
+    pub total_bytes: u64,
+    pub content_type: String,
+    pub etag: Option<String>,
+    pub last_modified: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(tag = "operation", rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub enum BrowserOperation {
+    Hello,
+    Prepare {
+        url: String,
+        filename: Option<String>,
+        evidence: Option<BrowserFileEvidence>,
+    },
+    Commit,
+    Abort,
+    Status,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserRequest {
+    pub version: u32,
+    pub request_id: String,
+    pub command: BrowserOperation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum BrowserState {
+    Ready,
+    Prepared,
+    Committing,
+    Committed,
+    Aborted,
+    Failed,
+    NotFound,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserResponse {
+    pub version: u32,
+    pub request_id: String,
+    pub state: BrowserState,
+    pub job: Option<JobView>,
+    pub error: Option<AppError>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AddDownloadRequest {

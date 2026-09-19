@@ -64,6 +64,27 @@ pub struct SourceMetadata {
     pub etag: Option<String>,
     pub last_modified: Option<String>,
     pub filename: Option<String>,
+    #[serde(default)]
+    pub content_type: Option<String>,
+}
+
+/// Durable browser handoff ownership; prepared jobs have not entered the engine.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HandoffState {
+    Prepared,
+    Committing,
+    Committed,
+    Aborted,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserHandoff {
+    pub request_id: String,
+    pub expires_at: u64,
+    pub state: HandoffState,
+    pub job: Job,
 }
 impl SourceMetadata {
     pub fn can_resume_with(&self, other: &Self) -> bool {

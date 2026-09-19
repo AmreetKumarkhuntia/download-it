@@ -1,10 +1,13 @@
 //! Real-process contract tests. Run with ARIA2_BIN=/absolute/path/to/aria2c cargo test -p dm-aria2 --test transfers -- --ignored.
 use dm_application::{
     ports::{DownloadEngine, ProcessSupervisor, SettingsRepository},
-    services::DownloadService,
+    services::{BrowserService, DownloadService},
 };
 use dm_aria2::{Aria2Engine, HttpSourceProbe};
-use dm_contracts::{AddDownloadRequest, JobView};
+use dm_contracts::{
+    AddDownloadRequest, BrowserFileEvidence, BrowserOperation, BrowserRequest, BrowserState,
+    JobView,
+};
 use dm_domain::{ErrorCode, JobStatus};
 use dm_filesystem::LocalFileStore;
 use dm_process::Aria2Process;
@@ -110,7 +113,7 @@ impl Server {
                         headers +=
                             &format!("Content-Range: bytes {start}-{end}/{}\r\n", data.len());
                     }
-                    headers += "\r\n";
+                    headers += "Content-Type: application/octet-stream\r\n\r\n";
                     if stream.write_all(headers.as_bytes()).await.is_err() {
                         return;
                     }
@@ -134,7 +137,8 @@ impl Server {
 }
 
 struct Harness {
-    service: DownloadService,
+    service: Arc<DownloadService>,
+    db: Arc<SqliteService>,
     process: Arc<Aria2Process>,
     engine: Arc<Aria2Engine>,
     dir: tempfile::TempDir,
@@ -150,16 +154,17 @@ impl Harness {
             Arc::new(Aria2Engine::new(process.endpoint.clone(), process.secret.clone()).unwrap());
         engine.wait_ready().await.unwrap();
         let db = Arc::new(SqliteService::open(&dir.path().join("jobs.sqlite")).unwrap());
-        let service = DownloadService::new(
+        let service = Arc::new(DownloadService::new(
             engine.clone(),
             Arc::new(HttpSourceProbe::new().unwrap()),
             db.clone(),
-            db,
+            db.clone(),
             Arc::new(LocalFileStore),
-        );
+        ));
         service.recover().await.unwrap();
         Self {
             service,
+            db,
             process,
             engine,
             dir,
@@ -198,6 +203,67 @@ impl Harness {
         self.service.shutdown().await.unwrap();
         self.process.stop().await.unwrap();
     }
+}
+
+#[tokio::test]
+#[ignore = "requires bundled aria2"]
+async fn browser_handoff_downloads_once_and_preserves_file_checksum() {
+    let server = Server::start().await;
+    let h = Harness::new().await;
+    h.service
+        .update_settings(dm_domain::Settings {
+            default_directory: h.dir.path().to_string_lossy().into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    let browser = BrowserService::new(h.service.clone(), h.db.clone());
+    let request = |command| BrowserRequest {
+        version: 1,
+        request_id: "b1111111-1111-4111-8111-111111111111".into(),
+        command,
+    };
+    let prepared = browser
+        .handle(request(BrowserOperation::Prepare {
+            url: format!("{}/redirect", server.url),
+            filename: None,
+            evidence: Some(BrowserFileEvidence {
+                method: "GET".into(),
+                total_bytes: server.data.len() as u64,
+                content_type: "application/octet-stream".into(),
+                etag: Some("\"version-1\"".into()),
+                last_modified: None,
+            }),
+        }))
+        .await;
+    assert!(matches!(prepared.state, BrowserState::Prepared));
+    assert!(h.service.list().await.unwrap().is_empty());
+    let committed = browser.handle(request(BrowserOperation::Commit)).await;
+    assert!(matches!(committed.state, BrowserState::Committed));
+    let id = committed.job.unwrap().id;
+    assert_eq!(
+        browser
+            .handle(request(BrowserOperation::Commit))
+            .await
+            .job
+            .unwrap()
+            .id,
+        id
+    );
+    let complete = h.finish(&id).await;
+    assert_eq!(
+        complete.status,
+        JobStatus::Completed,
+        "{:?}",
+        complete.error
+    );
+    let bytes = tokio::fs::read(complete.final_path.unwrap()).await.unwrap();
+    assert_eq!(
+        Sha256::digest(&bytes),
+        Sha256::digest(server.data.as_slice())
+    );
+    assert_eq!(h.service.list().await.unwrap().len(), 1);
+    h.stop().await;
 }
 
 #[tokio::test]
