@@ -26,6 +26,8 @@ ARIA2_BIN=/absolute/path/to/aria2c node tests/rust/run-transfers.mjs
 
 The real transfer runner requires `cargo` on PATH, aria2 and loopback listening sockets. It runs the six ignored integration cases serially. PowerShell users should set `$env:ARIA2_BIN` before running it. `cargo test` also covers the desktop package when native GTK/WebKit or the target platform's build dependencies are available.
 
+Transfer completion waits retry engine polling errors within a 60-second deadline, matching the desktop's repeated status polling. A failed or cancelled job still fails the test, other error categories fail immediately, and a persistent engine error is included in the timeout message. Regression tests for polling retries and deadlines run in the default Rust suite without aria2.
+
 Rust unit tests remain unit tests with access to private implementation details. Each production module references its external file using `#[cfg(test)]` and `#[path = ".../tests/rust/..."] mod tests;`. Keep `use super::*` inside that file. Integration tests are registered with explicit `[[test]]` paths in the aria2 and SQLite Cargo manifests. The target names remain `transfers` and `browser_handoffs`, so existing Cargo commands continue to work. The Windows pipe test remains gated to Windows.
 
 Desktop tests use a jsdom setup that supplies native dialog lifecycle methods. Mock transport at `services/client/`, not inside components. Test the shared workspace at the application boundary when checking subscriptions and page transitions. Use fake timers for polling and restore them after each test. Browser-extension tests use the Node environment and Chrome API mocks.

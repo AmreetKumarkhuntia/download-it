@@ -26,6 +26,29 @@ use tokio::{
     net::TcpListener,
 };
 
+mod polling;
+
+const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60);
+
+async fn finish_transfer(service: &DownloadService, id: &str) -> JobView {
+    polling::until_ready(TRANSFER_TIMEOUT, || async {
+        service.tick().await?;
+        let job = service
+            .list()
+            .await?
+            .into_iter()
+            .find(|job| job.id == id)
+            .expect("The transfer must remain in the download list");
+        Ok(matches!(
+            job.status,
+            JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled
+        )
+        .then_some(job))
+    })
+    .await
+    .unwrap_or_else(|error| panic!("Transfer {id} did not complete: {error}"))
+}
+
 struct Server {
     url: String,
     data: Arc<Vec<u8>>,
@@ -182,22 +205,7 @@ impl Harness {
             .unwrap()
     }
     async fn finish(&self, id: &str) -> JobView {
-        for _ in 0..200 {
-            self.service.tick().await.unwrap();
-            let job = self
-                .service
-                .list()
-                .await
-                .unwrap()
-                .into_iter()
-                .find(|j| j.id == id)
-                .unwrap();
-            if matches!(job.status, JobStatus::Completed | JobStatus::Failed) {
-                return job;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        panic!("Transfer timed out");
+        finish_transfer(&self.service, id).await
     }
     async fn stop(&self) {
         self.service.shutdown().await.unwrap();
@@ -410,7 +418,11 @@ async fn restart_recovers_partial_data_without_duplicate_jobs() {
     h.service.update_settings(settings).await.unwrap();
     let job = h.add(format!("{}/file", server.url), None).await;
     tokio::time::sleep(Duration::from_millis(1300)).await;
-    h.service.tick().await.unwrap();
+    polling::until_ready(TRANSFER_TIMEOUT, || async {
+        h.service.tick().await.map(Some)
+    })
+    .await
+    .unwrap();
     // Kill the engine while the persisted job is still active, mimicking an unexpected exit.
     h.engine.shutdown().await.unwrap();
     h.process.stop().await.unwrap();
@@ -434,14 +446,7 @@ async fn restart_recovers_partial_data_without_duplicate_jobs() {
     assert_eq!(recovered.list().await.unwrap().len(), 1);
     assert_eq!(recovered.list().await.unwrap()[0].status, JobStatus::Paused);
     recovered.resume(&job.id, false).await.unwrap();
-    for _ in 0..100 {
-        recovered.tick().await.unwrap();
-        if recovered.list().await.unwrap()[0].status == JobStatus::Completed {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    let done = recovered.list().await.unwrap().remove(0);
+    let done = finish_transfer(&recovered, &job.id).await;
     assert_eq!(done.status, JobStatus::Completed, "{:?}", done.error);
     assert_eq!(
         tokio::fs::read(done.final_path.unwrap()).await.unwrap(),
