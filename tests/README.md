@@ -17,7 +17,7 @@ Run from the repository root:
 ```sh
 pnpm check                        # Architecture and production/test TypeScript checks
 pnpm test                         # Desktop, browser extension, architecture and registration
-pnpm test:release                 # Release fixtures, including temporary Git repositories
+pnpm test:release                 # Release lifecycle, packaging, and commit policy fixtures
 pnpm --filter @dm/tests test:desktop
 pnpm --filter @dm/tests test:browser
 cargo test --workspace --exclude download-it

@@ -3,6 +3,7 @@ on:
   push:
     branches: ['**']
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,6 +11,21 @@ concurrency:
   group: download-it-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 jobs:
+  commits:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate commit messages and PR title
+        run: pnpm lint:commits:ci
   frontend:
     runs-on: ubuntu-24.04
     steps:
@@ -69,7 +85,7 @@ jobs:
       - name: Compile desktop application
         run: pnpm --filter @dm/desktop tauri build --no-bundle
   release:
-    needs: [frontend, desktop]
+    needs: [commits, frontend, desktop]
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: windows-latest
     permissions:
@@ -92,7 +108,7 @@ jobs:
         shell: pwsh
         run: ./tooling/binaries/windows.ps1
       - run: pnpm install --frozen-lockfile
-      - name: Version, build, and publish release
+      - name: Commit release version, build installers, and publish
         run: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

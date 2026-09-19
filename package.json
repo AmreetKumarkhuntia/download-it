@@ -17,6 +17,8 @@
     "contracts:check": "cargo run -p dm-contracts --bin export -- --check",
     "prepare:aria2": "node tooling/binaries/prepare.mjs",
     "test:release": "node --test tests/tooling/release/*.test.mjs",
+    "lint:commits": "commitlint",
+    "lint:commits:ci": "node tooling/commits/lint-ci.mjs",
     "release": "node tooling/release/run.mjs",
     "browser:build": "pnpm --filter @dm/browser-extension build && cargo build -p download-it-native-host",
     "browser:register": "node tooling/browser/registration.mjs",
@@ -24,7 +26,9 @@
     "browser:test-fixture": "node tests/fixtures/browser/server.mjs"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
     "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^11.0.1",
     "@semantic-release/github": "^12.0.9",
     "@semantic-release/release-notes-generator": "^14.1.1",
     "conventional-changelog-conventionalcommits": "^9.3.1",

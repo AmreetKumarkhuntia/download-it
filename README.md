@@ -21,11 +21,13 @@ Logged-in downloads, media extraction, archive extraction, scheduling, and backg
 
 Download the Windows x64 `-setup.exe` from [GitHub Releases](https://github.com/AmreetKumarkhuntia/download-it/releases). aria2 is included. The installer is currently **unsigned**, so Windows may display an unknown-publisher warning. macOS and Linux are build-tested in CI; their published installers and code signing are future additions.
 
-Push Conventional Commits to **`master`** to release: `fix:` creates a patch, `feat:` a minor, and `feat!:` or a `BREAKING CHANGE:` footer a major version. The first release is `1.0.0`. After all checks pass, semantic-release builds the installer, creates a `vX.Y.Z` tag, and publishes release notes, packages, checksums, and corresponding source archives. Documentation-only changes do not release. Other branches and pull requests never publish packages. The original `main` branch is not a release branch.
+Commit messages and PR titles must use **`feat`, `fix`, `refactor`, `doc`, or `chore`**: `type(optional-scope): description`. CI checks new commits and PR titles; use `doc:` for documentation and `chore:` for tooling, CI, formatting, or test maintenance. Use squash or rebase merges to preserve this format. Check locally with `pnpm lint:commits --last` or `pnpm lint:commits --edit .git/COMMIT_EDITMSG`.
+
+Push Conventional Commits to **`master`** to release: `fix:` creates a patch, `feat:` a minor, and `!` or a `BREAKING CHANGE:` footer a major version. The first release is `1.0.0`. After all checks pass, semantic-release pushes `chore(release): X.Y.Z [skip ci]` with the updated versions, builds the installer from that commit, tags it `vX.Y.Z`, and publishes release notes, packages, checksums, and corresponding source archives. Non-breaking `refactor`, `doc`, and `chore` commits do not release. Other branches and pull requests never publish packages. The original `main` branch is not a release branch. See [release packaging](docs/architecture/releases.md) for recovery and future installer adapters.
 
 ## Development
 
-Install Node 24.10+, pnpm 10.32.1, stable Rust, and aria2 1.37.0. Keep the lockfiles committed.
+Install Node 24.15+, pnpm 10.32.1, stable Rust, and aria2 1.37.0. Keep the lockfiles committed.
 
 Linux (Ubuntu 24.04):
 

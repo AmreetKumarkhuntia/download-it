@@ -61,8 +61,10 @@ test('conventional commits select patch, minor, major, or no release', async () 
       'refactor(core): change ports\n\nBREAKING CHANGE: integrations must use the new port',
       'major',
     ],
-    ['docs: describe settings', null],
+    ['doc: describe settings', null],
+    ['refactor(core): simplify ports', null],
     ['chore: refresh tooling', null],
+    ['chore(release): 1.0.0 [skip ci]', null],
   ]) {
     assert.equal(
       await analyzeCommits(options, { cwd: project, commits: [{ hash: 'test', message }], logger }),
@@ -114,6 +116,7 @@ test('Cargo lock stamping preserves third-party dependency versions', () => {
 
 test('one version is applied to every app manifest and workspace crate', (t) => {
   const root = fixture(t);
+  const originalConfig = readFileSync(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8');
   const names = [
     'dm-domain',
     'dm-contracts',
@@ -127,6 +130,13 @@ test('one version is applied to every app manifest and workspace crate', (t) => 
     'download-it',
   ];
   stampWorkspace(root, '1.0.0', names);
+  assert.equal(
+    readFileSync(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'),
+    originalConfig.replace(
+      `"version": "${JSON.parse(originalConfig).version}"`,
+      '"version": "1.0.0"',
+    ),
+  );
   for (const file of [
     'apps/desktop/package.json',
     'apps/browser-extension/package.json',
@@ -141,6 +151,21 @@ test('one version is applied to every app manifest and workspace crate', (t) => 
   );
   const lock = readFileSync(join(root, 'Cargo.lock'), 'utf8');
   for (const name of names) assert.ok(lock.includes(`name = "${name}"\nversion = "1.0.0"`));
+});
+
+test('release commit is built, tagged, and published; failed builds can retry without a loop', (t) => {
+  const root = fixture(t);
+  const remote = mkdtempSync(join(tmpdir(), 'download-it-release-remote-'));
+  t.after(() => rmSync(remote, { recursive: true, force: true }));
+  // semantic-release intercepts stdout; isolate it from Node's test reporter protocol.
+  execFileSync(
+    process.execPath,
+    [join(project, 'tests/fixtures/release/lifecycle.mjs'), root, remote],
+    {
+      cwd: project,
+      stdio: 'pipe',
+    },
+  );
 });
 
 test('packaging includes stamped source, valid checksums, and no untracked secrets', async (t) => {

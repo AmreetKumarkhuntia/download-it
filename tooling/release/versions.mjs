@@ -46,10 +46,17 @@ export function stampWorkspace(root, version, workspaceNames) {
     'packages/contracts/package.json',
     'apps/desktop/src-tauri/tauri.conf.json',
   ]) {
-    const data = JSON.parse(readFileSync(join(root, file), 'utf8'));
+    const content = readFileSync(join(root, file), 'utf8');
+    const data = JSON.parse(content);
     if (typeof data.version !== 'string') throw new Error(`Missing version in ${file}`);
-    data.version = version;
-    edits.set(file, JSON.stringify(data, null, 2) + '\n');
+    // Preserve formatting now that stamped manifests are committed back to master.
+    const updated = content.replace(
+      /^(  "version":\s*")[^"]+(")/m,
+      (_match, prefix, suffix) => `${prefix}${version}${suffix}`,
+    );
+    if (JSON.parse(updated).version !== version)
+      throw new Error(`Expected a top-level version field in ${file}`);
+    edits.set(file, updated);
   }
   // Validate every input before changing any file. No dependency versions are rewritten.
   for (const [file, content] of edits) writeFileSync(join(root, file), content);

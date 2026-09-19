@@ -5,18 +5,28 @@ export default {
   plugins: [
     ['@semantic-release/commit-analyzer', { preset: 'conventionalcommits' }],
     ['@semantic-release/release-notes-generator', { preset: 'conventionalcommits' }],
+    './tooling/release/workspace.mjs',
+    [
+      '@semantic-release/git',
+      {
+        assets: [
+          'Cargo.toml',
+          'Cargo.lock',
+          'apps/desktop/package.json',
+          'apps/browser-extension/package.json',
+          'packages/contracts/package.json',
+          'apps/desktop/src-tauri/tauri.conf.json',
+        ],
+        message: 'chore(release): ${nextRelease.version} [skip ci]',
+      },
+    ],
+    // Build from the release commit so installers, source archives, and tags agree.
     './tooling/release/desktop.mjs',
     [
       '@semantic-release/github',
       {
-        assets: [
-          { path: 'release/assets/*-setup.exe', label: 'Windows x64 installer (unsigned)' },
-          {
-            path: 'release/assets/*.zip',
-            label: 'Windows installer, corresponding sources, and notices',
-          },
-          { path: 'release/assets/SHA256SUMS.txt', label: 'SHA-256 checksums' },
-        ],
+        // Packaging adapters stage only public deliverables here, whatever their format.
+        assets: ['release/assets/*'],
         successComment: false,
         failComment: false,
         releasedLabels: false,
